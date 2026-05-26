@@ -18,8 +18,8 @@ import {
   listTemplates,
   listAgents,
   getAgent,
-  listBacklogManagers,
-  getBacklogManager,
+  listIssueTrackers,
+  getIssueTracker,
   listSandboxProviders,
   getSandboxProvider,
   getNextStepsLines,
@@ -27,7 +27,7 @@ import {
 import { defaultImageName } from "./sandboxes/docker.js";
 import type {
   AgentEntry,
-  BacklogManagerEntry,
+  IssueTrackerEntry,
   SandboxProviderEntry,
 } from "./InitService.js";
 import { ConfigDirError, InitError } from "./errors.js";
@@ -220,15 +220,15 @@ const initCommand = Command.make(
         selectedSandboxProvider = getSandboxProvider(selected as string)!;
       }
 
-      // Resolve backlog manager: interactive select
-      const backlogManagers = listBacklogManagers();
-      let selectedBacklogManager: BacklogManagerEntry;
+      // Resolve issue tracker: interactive select
+      const issueTrackers = listIssueTrackers();
+      let selectedIssueTracker: IssueTrackerEntry;
       {
         const selected = yield* Effect.promise(() =>
           clack.select({
-            message: "Select a backlog manager:",
+            message: "Select an issue tracker:",
             initialValue: "github-issues",
-            options: backlogManagers.map((b) => ({
+            options: issueTrackers.map((b) => ({
               value: b.name,
               label: b.label,
             })),
@@ -237,11 +237,11 @@ const initCommand = Command.make(
         if (clack.isCancel(selected)) {
           yield* Effect.fail(
             new InitError({
-              message: "Backlog manager selection cancelled.",
+              message: "Issue tracker selection cancelled.",
             }),
           );
         }
-        selectedBacklogManager = getBacklogManager(selected as string)!;
+        selectedIssueTracker = getIssueTracker(selected as string)!;
       }
 
       // Resolve template: CLI flag > interactive select (already validated above)
@@ -268,9 +268,9 @@ const initCommand = Command.make(
         selectedTemplate = selected as string;
       }
 
-      // Offer to create the "Sandcastle" label on the repo (skip for non-GitHub backlog managers)
+      // Offer to create the "Sandcastle" label on the repo (skip for non-GitHub issue trackers)
       let shouldCreateLabel: boolean | symbol = false;
-      if (selectedBacklogManager.name === "github-issues") {
+      if (selectedIssueTracker.name === "github-issues") {
         shouldCreateLabel = yield* Effect.promise(() =>
           clack.confirm({
             message:
@@ -298,7 +298,7 @@ const initCommand = Command.make(
           model: selectedModel,
           templateName: selectedTemplate,
           createLabel: shouldCreateLabel === true,
-          backlogManager: selectedBacklogManager,
+          issueTracker: selectedIssueTracker,
           sandboxProvider: selectedSandboxProvider,
         }).pipe(
           Effect.mapError(
@@ -310,12 +310,12 @@ const initCommand = Command.make(
         ),
       );
 
-      // Prompt user before building image. The custom backlog manager scaffolds
+      // Prompt user before building image. The custom issue tracker scaffolds
       // an intentionally unfinished Dockerfile (the install block is a TODO),
       // so there is nothing valid to build yet — skip the build prompt entirely
       // and let the next steps point the user at the setup doc.
       const providerLabel = selectedSandboxProvider.label;
-      if (selectedBacklogManager.name === "custom") {
+      if (selectedIssueTracker.name === "custom") {
         yield* d.status(
           "Init complete! Your custom issue tracker isn't configured yet — see the steps below before building.",
           "success",
@@ -359,7 +359,7 @@ const initCommand = Command.make(
       const nextSteps = getNextStepsLines(
         selectedTemplate,
         scaffoldResult.mainFilename,
-        selectedBacklogManager,
+        selectedIssueTracker,
         selectedAgent,
       );
       for (const [i, line] of nextSteps.entries()) {

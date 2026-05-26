@@ -10,8 +10,8 @@ import {
   listAgents,
   getAgent,
   listTemplates,
-  listBacklogManagers,
-  getBacklogManager,
+  listIssueTrackers,
+  getIssueTracker,
   listSandboxProviders,
   getSandboxProvider,
 } from "./InitService.js";
@@ -152,10 +152,10 @@ describe("InitService scaffold", () => {
       join(dir, ".sandcastle", "Dockerfile"),
       "utf-8",
     );
-    // Template has {{BACKLOG_MANAGER_TOOLS}} replaced — should contain GitHub CLI (default backlog manager)
+    // Template has {{ISSUE_TRACKER_TOOLS}} replaced — should contain GitHub CLI (default issue tracker)
     expect(dockerfile).toContain("FROM node:22-bookworm");
     expect(dockerfile).toContain("GitHub CLI");
-    expect(dockerfile).not.toContain("{{BACKLOG_MANAGER_TOOLS}}");
+    expect(dockerfile).not.toContain("{{ISSUE_TRACKER_TOOLS}}");
   });
 
   // --- Dynamic .env.example generation ---
@@ -211,10 +211,10 @@ describe("InitService scaffold", () => {
     },
   );
 
-  it("generates .env.example with GH_TOKEN when backlog manager is github-issues", async () => {
+  it("generates .env.example with GH_TOKEN when issue tracker is github-issues", async () => {
     const dir = await makeDir();
     await runScaffold(dir, {
-      backlogManager: getBacklogManager("github-issues"),
+      issueTracker: getIssueTracker("github-issues"),
     });
 
     const envExample = await readFile(
@@ -229,10 +229,10 @@ describe("InitService scaffold", () => {
     expect(envExample).toContain("Metadata");
   });
 
-  it("generates .env.example without GH_TOKEN when backlog manager is beads", async () => {
+  it("generates .env.example without GH_TOKEN when issue tracker is beads", async () => {
     const dir = await makeDir();
     await runScaffold(dir, {
-      backlogManager: getBacklogManager("beads"),
+      issueTracker: getIssueTracker("beads"),
     });
 
     const envExample = await readFile(
@@ -651,9 +651,9 @@ describe("InitService scaffold", () => {
   });
 
   describe("getNextStepsLines", () => {
-    const ghIssues = getBacklogManager("github-issues")!;
-    const customManager = getBacklogManager("custom")!;
-    // Non-custom backlog manager keeps the template-driven next steps; the
+    const ghIssues = getIssueTracker("github-issues")!;
+    const customManager = getIssueTracker("custom")!;
+    // Non-custom issue tracker keeps the template-driven next steps; the
     // custom branch is exercised separately below.
     const next = (template: string, mainFilename: string) =>
       getNextStepsLines(template, mainFilename, ghIssues, claudeCodeAgent);
@@ -772,7 +772,7 @@ describe("InitService scaffold", () => {
       expect(joined).not.toContain("zod");
     });
 
-    it("custom backlog manager points at the setup doc and the agent's setup command, regardless of template", () => {
+    it("custom issue tracker points at the setup doc and the agent's setup command, regardless of template", () => {
       const lines = getNextStepsLines(
         "simple-loop",
         "main.mts",
@@ -786,7 +786,7 @@ describe("InitService scaffold", () => {
       expect(joined).not.toContain("npm run sandcastle");
     });
 
-    it("custom backlog manager warns the setup command runs on the host", () => {
+    it("custom issue tracker warns the setup command runs on the host", () => {
       const lines = getNextStepsLines(
         "blank",
         "main.mts",
@@ -809,7 +809,7 @@ describe("InitService scaffold", () => {
     );
     expect(dockerfile).toContain("FROM node:22-bookworm");
     expect(dockerfile).toContain("@mariozechner/pi-coding-agent");
-    expect(dockerfile).not.toContain("{{BACKLOG_MANAGER_TOOLS}}");
+    expect(dockerfile).not.toContain("{{ISSUE_TRACKER_TOOLS}}");
   });
 
   it("scaffolds main.mts with pi factory import when pi agent selected", async () => {
@@ -834,7 +834,7 @@ describe("InitService scaffold", () => {
     );
     expect(dockerfile).toContain("FROM node:22-bookworm");
     expect(dockerfile).toContain("@openai/codex");
-    expect(dockerfile).not.toContain("{{BACKLOG_MANAGER_TOOLS}}");
+    expect(dockerfile).not.toContain("{{ISSUE_TRACKER_TOOLS}}");
   });
 
   it("scaffolds main.mts with codex factory import when codex agent selected", async () => {
@@ -865,7 +865,7 @@ describe("InitService scaffold", () => {
     expect(dockerfile).toMatch(
       /USER \$\{AGENT_UID\}:\$\{AGENT_GID\}[\s\S]*RUN curl https:\/\/cursor\.com\/install -fsS \| bash/,
     );
-    expect(dockerfile).not.toContain("{{BACKLOG_MANAGER_TOOLS}}");
+    expect(dockerfile).not.toContain("{{ISSUE_TRACKER_TOOLS}}");
   });
 
   it("scaffolds main.mts with cursor factory import when cursor agent selected", async () => {
@@ -1076,13 +1076,13 @@ describe("InitService scaffold", () => {
       const configDir = join(dir, ".sandcastle");
       const dockerfile = await readFile(join(configDir, "Dockerfile"), "utf-8");
       expect(dockerfile).toContain("FROM node:22-bookworm");
-      expect(dockerfile).not.toContain("{{BACKLOG_MANAGER_TOOLS}}");
+      expect(dockerfile).not.toContain("{{ISSUE_TRACKER_TOOLS}}");
 
       const envExample = await readFile(
         join(configDir, ".env.example"),
         "utf-8",
       );
-      // Dynamic env: claude-code agent → ANTHROPIC_API_KEY, default backlog → GH_TOKEN
+      // Dynamic env: claude-code agent → ANTHROPIC_API_KEY, default issue tracker → GH_TOKEN
       expect(envExample).toContain("ANTHROPIC_API_KEY=");
       expect(envExample).toContain("GH_TOKEN=");
     });
@@ -1263,13 +1263,13 @@ describe("InitService scaffold", () => {
       const configDir = join(dir, ".sandcastle");
       const dockerfile = await readFile(join(configDir, "Dockerfile"), "utf-8");
       expect(dockerfile).toContain("FROM node:22-bookworm");
-      expect(dockerfile).not.toContain("{{BACKLOG_MANAGER_TOOLS}}");
+      expect(dockerfile).not.toContain("{{ISSUE_TRACKER_TOOLS}}");
 
       const envExample = await readFile(
         join(configDir, ".env.example"),
         "utf-8",
       );
-      // Dynamic env: claude-code agent → ANTHROPIC_API_KEY, default backlog → GH_TOKEN
+      // Dynamic env: claude-code agent → ANTHROPIC_API_KEY, default issue tracker → GH_TOKEN
       expect(envExample).toContain("ANTHROPIC_API_KEY=");
       expect(envExample).toContain("GH_TOKEN=");
     });
@@ -1326,17 +1326,17 @@ describe("InitService scaffold", () => {
     });
   });
 
-  // --- Backlog manager ---
+  // --- Issue tracker ---
 
-  describe("Backlog manager registry", () => {
-    it("listBacklogManagers returns github-issues and beads", () => {
-      const managers = listBacklogManagers();
+  describe("Issue tracker registry", () => {
+    it("listIssueTrackers returns github-issues and beads", () => {
+      const managers = listIssueTrackers();
       expect(managers.some((m) => m.name === "github-issues")).toBe(true);
       expect(managers.some((m) => m.name === "beads")).toBe(true);
     });
 
-    it("getBacklogManager returns github-issues entry with expected templateArgs", () => {
-      const manager = getBacklogManager("github-issues");
+    it("getIssueTracker returns github-issues entry with expected templateArgs", () => {
+      const manager = getIssueTracker("github-issues");
       expect(manager).toBeDefined();
       expect(manager!.label).toBe("GitHub Issues");
       expect(manager!.templateArgs.LIST_TASKS_COMMAND).toContain(
@@ -1351,36 +1351,34 @@ describe("InitService scaffold", () => {
       expect(manager!.templateArgs.CLOSE_TASK_COMMAND).toContain(
         "gh issue close",
       );
-      expect(manager!.templateArgs.BACKLOG_MANAGER_TOOLS).toContain(
-        "GitHub CLI",
-      );
-      expect(manager!.templateArgs.BACKLOG_MANAGER_TOOLS).toContain("gh");
+      expect(manager!.templateArgs.ISSUE_TRACKER_TOOLS).toContain("GitHub CLI");
+      expect(manager!.templateArgs.ISSUE_TRACKER_TOOLS).toContain("gh");
     });
 
-    it("getBacklogManager returns beads entry with expected templateArgs", () => {
-      const manager = getBacklogManager("beads");
+    it("getIssueTracker returns beads entry with expected templateArgs", () => {
+      const manager = getIssueTracker("beads");
       expect(manager).toBeDefined();
       expect(manager!.label).toBe("Beads");
       expect(manager!.templateArgs.LIST_TASKS_COMMAND).toBe("bd ready --json");
       expect(manager!.templateArgs.VIEW_TASK_COMMAND).toContain("bd show");
       expect(manager!.templateArgs.CLOSE_TASK_COMMAND).toContain("bd close");
       expect(manager!.templateArgs.CLOSE_TASK_COMMAND).toContain("--reason=");
-      expect(manager!.templateArgs.BACKLOG_MANAGER_TOOLS).toContain("beads");
-      expect(manager!.templateArgs.BACKLOG_MANAGER_TOOLS).toContain("libicu72");
-      expect(manager!.templateArgs.BACKLOG_MANAGER_TOOLS).toContain(
+      expect(manager!.templateArgs.ISSUE_TRACKER_TOOLS).toContain("beads");
+      expect(manager!.templateArgs.ISSUE_TRACKER_TOOLS).toContain("libicu72");
+      expect(manager!.templateArgs.ISSUE_TRACKER_TOOLS).toContain(
         "corepack enable",
       );
-      expect(manager!.templateArgs.BACKLOG_MANAGER_TOOLS).not.toContain("gh");
-      expect(manager!.templateArgs.BACKLOG_MANAGER_TOOLS).not.toContain(
+      expect(manager!.templateArgs.ISSUE_TRACKER_TOOLS).not.toContain("gh");
+      expect(manager!.templateArgs.ISSUE_TRACKER_TOOLS).not.toContain(
         "x86_64-linux-gnu",
       );
-      expect(manager!.templateArgs.BACKLOG_MANAGER_TOOLS).toContain(
+      expect(manager!.templateArgs.ISSUE_TRACKER_TOOLS).toContain(
         "dpkg-architecture -qDEB_HOST_MULTIARCH",
       );
     });
 
-    it("getBacklogManager returns custom entry with broken-until-configured templateArgs", () => {
-      const manager = getBacklogManager("custom");
+    it("getIssueTracker returns custom entry with broken-until-configured templateArgs", () => {
+      const manager = getIssueTracker("custom");
       expect(manager).toBeDefined();
       expect(manager!.label).toBe("Custom");
       // Only the list command is a real shell expression — it hard-fails the
@@ -1402,21 +1400,21 @@ describe("InitService scaffold", () => {
         "SETUP_ISSUE_TRACKER.md",
       );
       // Dockerfile install block is a TODO comment pointing at the doc.
-      expect(manager!.templateArgs.BACKLOG_MANAGER_TOOLS).toContain("TODO");
-      expect(manager!.templateArgs.BACKLOG_MANAGER_TOOLS).toContain(
+      expect(manager!.templateArgs.ISSUE_TRACKER_TOOLS).toContain("TODO");
+      expect(manager!.templateArgs.ISSUE_TRACKER_TOOLS).toContain(
         "SETUP_ISSUE_TRACKER.md",
       );
       expect(manager!.envExample).toContain("TODO");
       expect(manager!.envExample).toContain("SETUP_ISSUE_TRACKER.md");
     });
 
-    it("listBacklogManagers includes custom", () => {
-      const managers = listBacklogManagers();
+    it("listIssueTrackers includes custom", () => {
+      const managers = listIssueTrackers();
       expect(managers.some((m) => m.name === "custom")).toBe(true);
     });
 
-    it("getBacklogManager returns undefined for unknown manager", () => {
-      expect(getBacklogManager("nonexistent")).toBeUndefined();
+    it("getIssueTracker returns undefined for unknown manager", () => {
+      expect(getIssueTracker("nonexistent")).toBeUndefined();
     });
   });
 
@@ -1451,12 +1449,12 @@ describe("InitService scaffold", () => {
     );
   });
 
-  describe("Backlog manager scaffold", () => {
+  describe("Issue tracker scaffold", () => {
     it("simple-loop with github-issues produces prompt with gh issue commands (richer version)", async () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "simple-loop",
-        backlogManager: getBacklogManager("github-issues"),
+        issueTracker: getIssueTracker("github-issues"),
       });
 
       const prompt = await readFile(
@@ -1475,7 +1473,7 @@ describe("InitService scaffold", () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "simple-loop",
-        backlogManager: getBacklogManager("beads"),
+        issueTracker: getIssueTracker("beads"),
       });
 
       const prompt = await readFile(
@@ -1494,7 +1492,7 @@ describe("InitService scaffold", () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "simple-loop",
-        backlogManager: getBacklogManager("beads"),
+        issueTracker: getIssueTracker("beads"),
       });
 
       const prompt = await readFile(
@@ -1508,7 +1506,7 @@ describe("InitService scaffold", () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "simple-loop",
-        backlogManager: getBacklogManager("github-issues"),
+        issueTracker: getIssueTracker("github-issues"),
         createLabel: true,
       });
 
@@ -1523,7 +1521,7 @@ describe("InitService scaffold", () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "simple-loop",
-        backlogManager: getBacklogManager("github-issues"),
+        issueTracker: getIssueTracker("github-issues"),
         createLabel: false,
       });
 
@@ -1535,7 +1533,7 @@ describe("InitService scaffold", () => {
       expect(prompt).toContain("gh issue list");
     });
 
-    it("scaffold without backlogManager defaults to github-issues", async () => {
+    it("scaffold without issueTracker defaults to github-issues", async () => {
       const dir = await makeDir();
       await runScaffold(dir, { templateName: "simple-loop" });
 
@@ -1559,15 +1557,15 @@ describe("InitService scaffold", () => {
       expect(prompt).not.toContain("GitHub issue");
     });
 
-    // --- custom backlog manager ---
+    // --- custom issue tracker ---
 
-    const customManager = getBacklogManager("custom");
+    const customManager = getIssueTracker("custom");
 
     it("custom scaffolds .sandcastle/SETUP_ISSUE_TRACKER.md", async () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "simple-loop",
-        backlogManager: customManager,
+        issueTracker: customManager,
       });
 
       const setup = await readFile(
@@ -1589,7 +1587,7 @@ describe("InitService scaffold", () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "simple-loop",
-        backlogManager: customManager,
+        issueTracker: customManager,
         sandboxProvider: getSandboxProvider("podman"),
       });
 
@@ -1601,11 +1599,11 @@ describe("InitService scaffold", () => {
       expect(setup).not.toContain("sandcastle docker build-image");
     });
 
-    it("non-custom backlog managers do not scaffold SETUP_ISSUE_TRACKER.md", async () => {
+    it("non-custom issue trackers do not scaffold SETUP_ISSUE_TRACKER.md", async () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "simple-loop",
-        backlogManager: getBacklogManager("github-issues"),
+        issueTracker: getIssueTracker("github-issues"),
       });
 
       const { access } = await import("node:fs/promises");
@@ -1618,7 +1616,7 @@ describe("InitService scaffold", () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "simple-loop",
-        backlogManager: customManager,
+        issueTracker: customManager,
       });
 
       const dockerfile = await readFile(
@@ -1627,7 +1625,7 @@ describe("InitService scaffold", () => {
       );
       expect(dockerfile).toContain("TODO");
       expect(dockerfile).toContain("SETUP_ISSUE_TRACKER.md");
-      expect(dockerfile).not.toContain("{{BACKLOG_MANAGER_TOOLS}}");
+      expect(dockerfile).not.toContain("{{ISSUE_TRACKER_TOOLS}}");
       // No real issue-tracker CLI baked in yet.
       expect(dockerfile).not.toContain("GitHub CLI");
     });
@@ -1636,7 +1634,7 @@ describe("InitService scaffold", () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "simple-loop",
-        backlogManager: customManager,
+        issueTracker: customManager,
       });
 
       const prompt = await readFile(
@@ -1652,7 +1650,7 @@ describe("InitService scaffold", () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "simple-loop",
-        backlogManager: customManager,
+        issueTracker: customManager,
       });
 
       const envExample = await readFile(
@@ -1669,7 +1667,7 @@ describe("InitService scaffold", () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "sequential-reviewer",
-        backlogManager: getBacklogManager("github-issues"),
+        issueTracker: getIssueTracker("github-issues"),
       });
 
       const prompt = await readFile(
@@ -1688,7 +1686,7 @@ describe("InitService scaffold", () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "sequential-reviewer",
-        backlogManager: getBacklogManager("beads"),
+        issueTracker: getIssueTracker("beads"),
       });
 
       const prompt = await readFile(
@@ -1720,7 +1718,7 @@ describe("InitService scaffold", () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "blank",
-        backlogManager: getBacklogManager("github-issues"),
+        issueTracker: getIssueTracker("github-issues"),
       });
 
       const prompt = await readFile(
@@ -1735,7 +1733,7 @@ describe("InitService scaffold", () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "blank",
-        backlogManager: getBacklogManager("beads"),
+        issueTracker: getIssueTracker("beads"),
       });
 
       const prompt = await readFile(
@@ -1753,7 +1751,7 @@ describe("InitService scaffold", () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "parallel-planner",
-        backlogManager: getBacklogManager("github-issues"),
+        issueTracker: getIssueTracker("github-issues"),
       });
 
       const planPrompt = await readFile(
@@ -1770,7 +1768,7 @@ describe("InitService scaffold", () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "parallel-planner",
-        backlogManager: getBacklogManager("beads"),
+        issueTracker: getIssueTracker("beads"),
       });
 
       const planPrompt = await readFile(
@@ -1835,7 +1833,7 @@ describe("InitService scaffold", () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "parallel-planner",
-        backlogManager: getBacklogManager("github-issues"),
+        issueTracker: getIssueTracker("github-issues"),
       });
 
       const prompt = await readFile(
@@ -1850,7 +1848,7 @@ describe("InitService scaffold", () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "parallel-planner",
-        backlogManager: getBacklogManager("beads"),
+        issueTracker: getIssueTracker("beads"),
       });
 
       const prompt = await readFile(
@@ -1866,7 +1864,7 @@ describe("InitService scaffold", () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "parallel-planner",
-        backlogManager: getBacklogManager("github-issues"),
+        issueTracker: getIssueTracker("github-issues"),
       });
 
       const prompt = await readFile(
@@ -1881,7 +1879,7 @@ describe("InitService scaffold", () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "parallel-planner",
-        backlogManager: getBacklogManager("beads"),
+        issueTracker: getIssueTracker("beads"),
       });
 
       const prompt = await readFile(
@@ -1924,7 +1922,7 @@ describe("InitService scaffold", () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "parallel-planner-with-review",
-        backlogManager: getBacklogManager("github-issues"),
+        issueTracker: getIssueTracker("github-issues"),
       });
 
       const planPrompt = await readFile(
@@ -1941,7 +1939,7 @@ describe("InitService scaffold", () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "parallel-planner-with-review",
-        backlogManager: getBacklogManager("beads"),
+        issueTracker: getIssueTracker("beads"),
       });
 
       const planPrompt = await readFile(
@@ -2020,7 +2018,7 @@ describe("InitService scaffold", () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "parallel-planner-with-review",
-        backlogManager: getBacklogManager("github-issues"),
+        issueTracker: getIssueTracker("github-issues"),
       });
 
       const prompt = await readFile(
@@ -2035,7 +2033,7 @@ describe("InitService scaffold", () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "parallel-planner-with-review",
-        backlogManager: getBacklogManager("beads"),
+        issueTracker: getIssueTracker("beads"),
       });
 
       const prompt = await readFile(
@@ -2051,7 +2049,7 @@ describe("InitService scaffold", () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "parallel-planner-with-review",
-        backlogManager: getBacklogManager("github-issues"),
+        issueTracker: getIssueTracker("github-issues"),
       });
 
       const prompt = await readFile(
@@ -2066,7 +2064,7 @@ describe("InitService scaffold", () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "parallel-planner-with-review",
-        backlogManager: getBacklogManager("beads"),
+        issueTracker: getIssueTracker("beads"),
       });
 
       const prompt = await readFile(
@@ -2091,12 +2089,12 @@ describe("InitService scaffold", () => {
       expect(prompt).not.toContain("GitHub issue");
     });
 
-    // --- Dockerfile backlog manager tools ---
+    // --- Dockerfile issue tracker tools ---
 
     it("scaffold with github-issues produces Dockerfile with GitHub CLI install", async () => {
       const dir = await makeDir();
       await runScaffold(dir, {
-        backlogManager: getBacklogManager("github-issues"),
+        issueTracker: getIssueTracker("github-issues"),
       });
 
       const dockerfile = await readFile(
@@ -2105,13 +2103,13 @@ describe("InitService scaffold", () => {
       );
       expect(dockerfile).toContain("GitHub CLI");
       expect(dockerfile).toContain("gh");
-      expect(dockerfile).not.toContain("{{BACKLOG_MANAGER_TOOLS}}");
+      expect(dockerfile).not.toContain("{{ISSUE_TRACKER_TOOLS}}");
     });
 
     it("scaffold with beads produces Dockerfile with beads install (no GitHub CLI)", async () => {
       const dir = await makeDir();
       await runScaffold(dir, {
-        backlogManager: getBacklogManager("beads"),
+        issueTracker: getIssueTracker("beads"),
       });
 
       const dockerfile = await readFile(
@@ -2122,7 +2120,7 @@ describe("InitService scaffold", () => {
       expect(dockerfile).toContain("libicu72");
       expect(dockerfile).toContain("corepack enable");
       expect(dockerfile).not.toContain("GitHub CLI");
-      expect(dockerfile).not.toContain("{{BACKLOG_MANAGER_TOOLS}}");
+      expect(dockerfile).not.toContain("{{ISSUE_TRACKER_TOOLS}}");
       expect(dockerfile).not.toContain("x86_64-linux-gnu");
       expect(dockerfile).toContain("dpkg-architecture -qDEB_HOST_MULTIARCH");
     });
@@ -2131,7 +2129,7 @@ describe("InitService scaffold", () => {
       const dir = await makeDir();
       const podmanProvider = getSandboxProvider("podman")!;
       await runScaffold(dir, {
-        backlogManager: getBacklogManager("beads"),
+        issueTracker: getIssueTracker("beads"),
         sandboxProvider: podmanProvider,
       });
 
@@ -2142,7 +2140,7 @@ describe("InitService scaffold", () => {
       expect(containerfile).toContain("beads");
       expect(containerfile).toContain("libicu72");
       expect(containerfile).not.toContain("GitHub CLI");
-      expect(containerfile).not.toContain("{{BACKLOG_MANAGER_TOOLS}}");
+      expect(containerfile).not.toContain("{{ISSUE_TRACKER_TOOLS}}");
       expect(containerfile).not.toContain("x86_64-linux-gnu");
       expect(containerfile).toContain("dpkg-architecture -qDEB_HOST_MULTIARCH");
     });
@@ -2152,7 +2150,7 @@ describe("InitService scaffold", () => {
       await runScaffold(dir, {
         agent: piAgent,
         model: "claude-sonnet-4-6",
-        backlogManager: getBacklogManager("beads"),
+        issueTracker: getIssueTracker("beads"),
       });
 
       const dockerfile = await readFile(
@@ -2299,7 +2297,7 @@ describe("InitService scaffold", () => {
         "utf-8",
       );
       expect(dockerfile).toContain("FROM node:22-bookworm");
-      expect(dockerfile).not.toContain("{{BACKLOG_MANAGER_TOOLS}}");
+      expect(dockerfile).not.toContain("{{ISSUE_TRACKER_TOOLS}}");
     });
 
     it("selecting podman writes Containerfile to .sandcastle/", async () => {
@@ -2311,7 +2309,7 @@ describe("InitService scaffold", () => {
         "utf-8",
       );
       expect(containerfile).toContain("FROM node:22-bookworm");
-      expect(containerfile).not.toContain("{{BACKLOG_MANAGER_TOOLS}}");
+      expect(containerfile).not.toContain("{{ISSUE_TRACKER_TOOLS}}");
     });
 
     it("selecting podman does not write Dockerfile", async () => {

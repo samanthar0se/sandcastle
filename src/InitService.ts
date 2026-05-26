@@ -10,7 +10,7 @@ worktrees/
 `;
 
 /**
- * Filename of the setup prompt scaffolded for the `custom` backlog manager.
+ * Filename of the setup prompt scaffolded for the `custom` issue tracker.
  * Both the per-agent `setupCommand` and the in-scaffold sentinels point at it,
  * so it is defined once here.
  */
@@ -65,7 +65,7 @@ export interface AgentEntry {
   /**
    * Copy-pasteable interactive command that feeds the custom-issue-tracker
    * setup prompt to this agent's CLI on the host. Printed in init's next steps
-   * when the `custom` backlog manager is selected. Runs on the host (the
+   * when the `custom` issue tracker is selected. Runs on the host (the
    * sandbox image isn't built yet), so the user must have the CLI installed.
    */
   readonly setupCommand: string;
@@ -80,7 +80,7 @@ RUN apt-get update && apt-get install -y \\
   jq \\
   && rm -rf /var/lib/apt/lists/*
 
-{{BACKLOG_MANAGER_TOOLS}}
+{{ISSUE_TRACKER_TOOLS}}
 
 # Build-args for UID/GID alignment: sandcastle docker build-image
 # defaults these to the host user's UID/GID so image-built files
@@ -115,7 +115,7 @@ RUN apt-get update && apt-get install -y \\
   jq \\
   && rm -rf /var/lib/apt/lists/*
 
-{{BACKLOG_MANAGER_TOOLS}}
+{{ISSUE_TRACKER_TOOLS}}
 
 # Build-args for UID/GID alignment: sandcastle docker build-image
 # defaults these to the host user's UID/GID so image-built files
@@ -148,7 +148,7 @@ RUN apt-get update && apt-get install -y \\
   jq \\
   && rm -rf /var/lib/apt/lists/*
 
-{{BACKLOG_MANAGER_TOOLS}}
+{{ISSUE_TRACKER_TOOLS}}
 
 # Build-args for UID/GID alignment: sandcastle docker build-image
 # defaults these to the host user's UID/GID so image-built files
@@ -181,7 +181,7 @@ RUN apt-get update && apt-get install -y \\
   jq \\
   && rm -rf /var/lib/apt/lists/*
 
-{{BACKLOG_MANAGER_TOOLS}}
+{{ISSUE_TRACKER_TOOLS}}
 
 # Build-args for UID/GID alignment: sandcastle docker build-image
 # defaults these to the host user's UID/GID so image-built files
@@ -216,7 +216,7 @@ RUN apt-get update && apt-get install -y \\
   jq \\
   && rm -rf /var/lib/apt/lists/*
 
-{{BACKLOG_MANAGER_TOOLS}}
+{{ISSUE_TRACKER_TOOLS}}
 
 # Build-args for UID/GID alignment: sandcastle docker build-image
 # defaults these to the host user's UID/GID so image-built files
@@ -249,7 +249,7 @@ RUN apt-get update && apt-get install -y \\
   jq \\
   && rm -rf /var/lib/apt/lists/*
 
-{{BACKLOG_MANAGER_TOOLS}}
+{{ISSUE_TRACKER_TOOLS}}
 
 # Build-args for UID/GID alignment: sandcastle docker build-image
 # defaults these to the host user's UID/GID so image-built files
@@ -343,19 +343,19 @@ GITHUB_TOKEN=`,
 export const listAgents = (): AgentEntry[] => AGENT_REGISTRY;
 
 // ---------------------------------------------------------------------------
-// Backlog manager registry (internal — not part of public API)
+// Issue tracker registry (internal — not part of public API)
 // ---------------------------------------------------------------------------
 
-export interface BacklogManagerEntry {
+export interface IssueTrackerEntry {
   readonly name: string;
   readonly label: string;
   readonly templateArgs: {
     readonly LIST_TASKS_COMMAND: string;
     readonly VIEW_TASK_COMMAND: string;
     readonly CLOSE_TASK_COMMAND: string;
-    readonly BACKLOG_MANAGER_TOOLS: string;
+    readonly ISSUE_TRACKER_TOOLS: string;
   };
-  /** Lines to append to `.env.example` for this backlog manager, or empty string if none needed. */
+  /** Lines to append to `.env.example` for this issue tracker, or empty string if none needed. */
   readonly envExample: string;
 }
 
@@ -381,7 +381,7 @@ RUN curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/i
 
 RUN corepack enable`;
 
-// Sentinels baked into the scaffold for the `custom` backlog manager. The
+// Sentinels baked into the scaffold for the `custom` issue tracker. The
 // project ships deliberately broken-until-configured; the setup agent finds
 // and replaces these markers in place (see SETUP_ISSUE_TRACKER.md). Defined as
 // shared constants so the registry entry and the setup doc stay in sync.
@@ -392,7 +392,7 @@ const CUSTOM_TRACKER_TOOLS = `# TODO: install your issue tracker's CLI here. See
 const CUSTOM_ENV_EXAMPLE = `# TODO: add any env vars your issue tracker needs (e.g. an API token).
 # See ${SETUP_ISSUE_TRACKER_PATH}`;
 
-const BACKLOG_MANAGER_REGISTRY: BacklogManagerEntry[] = [
+const ISSUE_TRACKER_REGISTRY: IssueTrackerEntry[] = [
   {
     name: "github-issues",
     label: "GitHub Issues",
@@ -400,7 +400,7 @@ const BACKLOG_MANAGER_REGISTRY: BacklogManagerEntry[] = [
       LIST_TASKS_COMMAND: `gh issue list --state open --label Sandcastle --limit 100 --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'`,
       VIEW_TASK_COMMAND: "gh issue view <ID>",
       CLOSE_TASK_COMMAND: `gh issue close <ID> --comment "Completed by Sandcastle"`,
-      BACKLOG_MANAGER_TOOLS: GITHUB_CLI_TOOLS,
+      ISSUE_TRACKER_TOOLS: GITHUB_CLI_TOOLS,
     },
     envExample: `# GitHub personal access token — the agent uses it to read and manage GitHub Issues
 # Create a fine-grained token: https://github.com/settings/personal-access-tokens/new
@@ -414,7 +414,7 @@ GH_TOKEN=`,
       LIST_TASKS_COMMAND: "bd ready --json",
       VIEW_TASK_COMMAND: "bd show <ID>",
       CLOSE_TASK_COMMAND: `bd close <ID> --reason="Completed by Sandcastle"`,
-      BACKLOG_MANAGER_TOOLS: BEADS_TOOLS,
+      ISSUE_TRACKER_TOOLS: BEADS_TOOLS,
     },
     envExample: "",
   },
@@ -429,19 +429,17 @@ GH_TOKEN=`,
       // Inline text markers — replaced by the setup agent, never executed.
       VIEW_TASK_COMMAND: CUSTOM_VIEW_TASK_MARKER,
       CLOSE_TASK_COMMAND: CUSTOM_CLOSE_TASK_MARKER,
-      BACKLOG_MANAGER_TOOLS: CUSTOM_TRACKER_TOOLS,
+      ISSUE_TRACKER_TOOLS: CUSTOM_TRACKER_TOOLS,
     },
     envExample: CUSTOM_ENV_EXAMPLE,
   },
 ];
 
-export const listBacklogManagers = (): BacklogManagerEntry[] =>
-  BACKLOG_MANAGER_REGISTRY;
+export const listIssueTrackers = (): IssueTrackerEntry[] =>
+  ISSUE_TRACKER_REGISTRY;
 
-export const getBacklogManager = (
-  name: string,
-): BacklogManagerEntry | undefined =>
-  BACKLOG_MANAGER_REGISTRY.find((b) => b.name === name);
+export const getIssueTracker = (name: string): IssueTrackerEntry | undefined =>
+  ISSUE_TRACKER_REGISTRY.find((b) => b.name === name);
 
 export const getAgent = (name: string): AgentEntry | undefined =>
   AGENT_REGISTRY.find((a) => a.name === name);
@@ -489,14 +487,14 @@ export const getSandboxProvider = (
 export function getNextStepsLines(
   template: string,
   mainFilename: string,
-  backlogManager: BacklogManagerEntry,
+  issueTracker: IssueTrackerEntry,
   agent: AgentEntry,
 ): string[] {
-  // The custom backlog manager scaffolds a broken-until-configured project, so
+  // The custom issue tracker scaffolds a broken-until-configured project, so
   // its next steps are about running the setup prompt — not the template's
   // normal "set env vars and go" flow. This branch wins over template-specific
   // steps regardless of the chosen template.
-  if (backlogManager.name === "custom") {
+  if (issueTracker.name === "custom") {
     return [
       "Next steps:",
       "1. Your custom issue tracker isn't wired up yet — runs hard-fail until you configure it.",
@@ -722,12 +720,12 @@ const isTextFile = (filename: string): boolean => {
 };
 
 /**
- * Replace `{{KEY}}` template arguments from the backlog manager's
+ * Replace `{{KEY}}` template arguments from the issue tracker's
  * `templateArgs` map in all text files in the scaffolded config directory.
  */
 const substituteTemplateArgs = (
   configDir: string,
-  backlogManager: BacklogManagerEntry,
+  issueTracker: IssueTrackerEntry,
 ): Effect.Effect<void, Error, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -744,7 +742,7 @@ const substituteTemplateArgs = (
             .pipe(Effect.mapError((e) => new Error(e.message)));
           const original = content;
           for (const [key, value] of Object.entries(
-            backlogManager.templateArgs,
+            issueTracker.templateArgs,
           )) {
             content = content.replace(
               new RegExp(`\\{\\{${key}\\}\\}`, "g"),
@@ -763,8 +761,8 @@ const substituteTemplateArgs = (
   });
 
 /**
- * Build the `SETUP_ISSUE_TRACKER.md` prompt scaffolded for the `custom` backlog
- * manager. It addresses the user's coding agent and walks it through wiring up
+ * Build the `SETUP_ISSUE_TRACKER.md` prompt scaffolded for the `custom` issue
+ * tracker. It addresses the user's coding agent and walks it through wiring up
  * the tracker by editing the scaffolded files in place. The build command is
  * provider-parameterized so it names the actual CLI namespace (docker/podman).
  */
@@ -834,7 +832,7 @@ export interface ScaffoldOptions {
   model: string;
   templateName?: string;
   createLabel?: boolean;
-  backlogManager?: BacklogManagerEntry;
+  issueTracker?: IssueTrackerEntry;
   sandboxProvider?: SandboxProviderEntry;
 }
 
@@ -877,7 +875,7 @@ export const scaffold = (
       model,
       templateName = "blank",
       createLabel = true,
-      backlogManager = BACKLOG_MANAGER_REGISTRY[0]!, // default: github-issues
+      issueTracker = ISSUE_TRACKER_REGISTRY[0]!, // default: github-issues
       sandboxProvider = SANDBOX_PROVIDER_REGISTRY[0]!, // default: docker
     } = options;
     const fs = yield* FileSystem.FileSystem;
@@ -902,10 +900,10 @@ export const scaffold = (
 
     const templateDir = yield* getTemplateDir(templateName);
 
-    // Build .env.example from agent + backlog manager env blocks
+    // Build .env.example from agent + issue tracker env blocks
     const envExampleParts = [agent.envExample];
-    if (backlogManager.envExample) {
-      envExampleParts.push(backlogManager.envExample);
+    if (issueTracker.envExample) {
+      envExampleParts.push(issueTracker.envExample);
     }
     const envExampleContent = envExampleParts.join("\n") + "\n";
 
@@ -937,19 +935,19 @@ export const scaffold = (
       mainFilename,
     );
 
-    // Replace backlog manager template arguments in all text files (must run before label stripping)
-    yield* substituteTemplateArgs(configDir, backlogManager);
+    // Replace issue tracker template arguments in all text files (must run before label stripping)
+    yield* substituteTemplateArgs(configDir, issueTracker);
 
     // Strip --label Sandcastle from prompt files when the user declined label creation
     if (!createLabel) {
       yield* rewritePromptFiles(configDir);
     }
 
-    // For the custom backlog manager, drop the setup prompt the user feeds to
+    // For the custom issue tracker, drop the setup prompt the user feeds to
     // their coding agent. Written after substituteTemplateArgs so it isn't
     // clobbered and references the resolved sentinel markers the agent finds
     // (not the {{KEY}} names, which are gone by now).
-    if (backlogManager.name === "custom") {
+    if (issueTracker.name === "custom") {
       yield* fs
         .writeFileString(
           join(configDir, SETUP_ISSUE_TRACKER_DOC),
