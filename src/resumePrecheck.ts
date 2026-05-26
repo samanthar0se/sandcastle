@@ -12,9 +12,12 @@ import type { SandboxProvider } from "./SandboxProvider.js";
  *   agent's own path encoding (realpath canonicalisation plus
  *   non-alphanumeric → hyphen) is fragile and platform-specific to reconstruct,
  *   so we locate the file by its globally-unique session id instead.
- * - **Sandboxed (bind-mount / isolated)**: Sandcastle transfers the session to
- *   the host store keyed on the host repo dir, so the file is guaranteed to live
- *   at that exact encoded location — check it directly.
+ * - **Sandboxed (bind-mount)**: Sandcastle's capture transfers the session into
+ *   the host store keyed on the host repo dir, so for a resumable run the file
+ *   lives at that exact encoded location — check it directly rather than
+ *   scanning. (Isolated sandboxes fall here too, but neither capture nor resume
+ *   transfer is wired for them today, so this is the host-repo-dir check by
+ *   default.)
  */
 export const assertResumeSessionExists = async (params: {
   readonly provider: AgentProvider;
