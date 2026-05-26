@@ -1,5 +1,13 @@
 # @ai-hero/sandcastle
 
+## 0.6.3
+
+### Patch Changes
+
+- 1a7e2f5: Add a "Custom" issue tracker option to `sandcastle init`. Selecting it scaffolds the project in a deliberately broken-until-configured state plus a `.sandcastle/SETUP_ISSUE_TRACKER.md` prompt you feed to your coding agent, which wires up your own issue tracker by editing the scaffolded files in place. Init skips the image build for this option (the Dockerfile is intentionally unfinished) and prints a per-agent setup command in the next steps.
+- 8f79a12: Use the scoped package name (`@ai-hero/sandcastle`) in the quick-start docs so `npx` resolves this package rather than the unrelated unscoped `sandcastle` package on npm. Also refresh the docs site getting-started page, which referenced removed `sandcastle init`/`sandcastle run` commands.
+- b7595bc: Rename the "backlog manager" concept to "issue tracker" across `sandcastle init` — the selection prompt now reads "Select an issue tracker:", and the generated Dockerfile placeholder is `{{ISSUE_TRACKER_TOOLS}}`. Pure rename with no behaviour change.
+
 ## 0.6.2
 
 ### Patch Changes
