@@ -510,6 +510,21 @@ describe("codex factory", () => {
     expect(command).toContain(`-c 'model_reasoning_effort="high"'`);
   });
 
+  it("buildPrintCommand resumes with stdin prompt when resumeSession is set", () => {
+    const provider = codex("gpt-5.4-mini", { effort: "high" });
+    const { command, stdin } = provider.buildPrintCommand({
+      prompt: "continue",
+      dangerouslySkipPermissions: true,
+      resumeSession: "abc-123",
+    });
+    expect(command).toContain("codex exec resume 'abc-123'");
+    expect(command).toContain("--json");
+    expect(command).toContain("-m 'gpt-5.4-mini'");
+    expect(command).toContain(`-c 'model_reasoning_effort="high"'`);
+    expect(command.endsWith(" -")).toBe(true);
+    expect(stdin).toBe("continue");
+  });
+
   it("buildPrintCommand omits model reasoning effort config when not specified", () => {
     const provider = codex("gpt-5.4-mini");
     const { command } = provider.buildPrintCommand(opts("do something"));
@@ -524,6 +539,21 @@ describe("codex factory", () => {
       );
     }
   });
+
+  it("parseStreamLine extracts session id from thread.started", () => {
+    const provider = codex("gpt-5.4-mini");
+    const line = JSON.stringify({
+      type: "thread.started",
+      thread_id: "9ba1c695-2222-4444-8888-e7e847bf34dd",
+    });
+    expect(provider.parseStreamLine(line)).toEqual([
+      {
+        type: "session_id",
+        sessionId: "9ba1c695-2222-4444-8888-e7e847bf34dd",
+      },
+    ]);
+  });
+
   it("parseStreamLine extracts text and result from item.completed agent_message", () => {
     const provider = codex("gpt-5.4-mini");
     const line = JSON.stringify({
@@ -759,7 +789,9 @@ describe("opencode factory", () => {
   });
 
   it("buildPrintCommand shell-escapes the variant value", () => {
-    const provider = opencode("opencode/big-pickle", { variant: "it's tricky" });
+    const provider = opencode("opencode/big-pickle", {
+      variant: "it's tricky",
+    });
     const { command } = provider.buildPrintCommand(opts("test"));
     expect(command).toContain("--variant 'it'\\''s tricky'");
   });
@@ -822,15 +854,14 @@ describe("resumeSession on non-Claude providers", () => {
     expect(command).not.toContain("abc-123");
   });
 
-  it("codex ignores resumeSession in buildPrintCommand", () => {
+  it("codex uses resumeSession in buildPrintCommand", () => {
     const provider = codex("gpt-5.4-mini");
     const { command } = provider.buildPrintCommand({
       prompt: "test",
       dangerouslySkipPermissions: true,
       resumeSession: "abc-123",
     });
-    expect(command).not.toContain("--resume");
-    expect(command).not.toContain("abc-123");
+    expect(command).toContain("codex exec resume 'abc-123'");
   });
 
   it("opencode ignores resumeSession in buildPrintCommand", () => {
@@ -965,8 +996,14 @@ describe("captureSessions flag", () => {
     expect(pi("pi-model").captureSessions).toBe(false);
   });
 
-  it("codex has captureSessions false", () => {
-    expect(codex("codex-model").captureSessions).toBe(false);
+  it("codex defaults captureSessions to true", () => {
+    expect(codex("codex-model").captureSessions).toBe(true);
+  });
+
+  it("codex allows opting out of captureSessions", () => {
+    expect(
+      codex("codex-model", { captureSessions: false }).captureSessions,
+    ).toBe(false);
   });
 
   it("opencode has captureSessions false", () => {

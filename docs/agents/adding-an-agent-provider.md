@@ -41,7 +41,7 @@ Resume support is a hard requirement for new **agent providers** ([ADR 0012](../
 
 - **Resume-by-session-ID flag.** A flag that takes a previously emitted session ID and continues that session (e.g. `claude --resume <id>`, `codex exec resume <id>`, `pi --session <id>`, `opencode run --session <id>`).
 - **Session-ID round-trip stability.** The session ID emitted in the stream during a fresh run is the same string the resume flag accepts back. If the CLI mints a new ID per invocation but only persists the file/row, resume cannot work — verify the round-trip empirically before starting implementation.
-- **Persisted session storage.** The agent writes its conversation record somewhere addressable by session ID — a JSONL file, a SQLite row, etc. — so Sandcastle can transfer it between **host** and **sandbox**.
+- **Filesystem-backed session storage.** The agent writes its conversation record to files addressable by session ID (for example JSONL rollout files) so Sandcastle can transfer them between **host** and **sandbox**. Agents whose session state only exists in a local database are not resumable; see [ADR 0016](../adr/0016-resume-requires-filesystem-backed-sessions.md).
 
 If any of these is missing, the agent likely cannot be supported until its CLI changes.
 
@@ -86,7 +86,7 @@ Field by field:
 - `name` — short identifier (e.g. `"claude-code"`, `"codex"`). Used in logs and config.
 - `env` — environment variables injected into the **sandbox** when this agent runs. Auth keys live here. Merged with the env resolver and **sandbox provider** env at launch.
 - `captureSessions` — user-facing kill-switch. When `true` (default), Sandcastle records the agent's session log per **iteration** and is able to resume it. Expose this on the provider's `Options` interface so users can opt out.
-- `sessionStorage` — provider-owned factories that describe where and how the agent's session record is persisted ([ADR 0012](../adr/0012-agent-provider-owned-session-storage.md)). The provider supplies `hostStore` (reads/writes session content on the **host**), `sandboxStore` (the same, inside the **sandbox** via the bind-mount handle), and `transfer` (copies a session between two stores, applying any format-specific content rewriting — e.g. Claude Code rewrites the `cwd` field in each JSONL entry from source-cwd to target-cwd). For file-backed agents (JSONL, single file per session), the stores wrap a directory + filename convention. For non-file backends (e.g. SQLite), the stores wrap whatever access primitive fits.
+- `sessionStorage` — provider-owned factories that describe where and how the agent's session record is persisted ([ADR 0012](../adr/0012-agent-provider-owned-session-storage.md)). The provider supplies `hostStore` (reads/writes session content on the **host**), `sandboxStore` (the same, inside the **sandbox** via the bind-mount handle), and `transfer` (copies a session between two stores, applying any format-specific content rewriting — e.g. Claude Code rewrites the `cwd` field in each JSONL entry from source-cwd to target-cwd). Resumable providers must be filesystem-backed; stores wrap the provider's directory + filename convention.
 - `buildPrintCommand({ prompt, dangerouslySkipPermissions, resumeSession })` — returns the shell command to run the agent non-interactively. Return `{ command, stdin }` when piping the prompt via stdin (preferred for large prompts). When `resumeSession` is set, append the agent's native resume CLI flag.
 - `buildInteractiveArgs(options)` — optional. Returns the argv array for `interactive()`. Omit if the agent has no TUI.
 - `parseStreamLine(line)` — given one line of stdout, return zero or more `ParsedStreamEvent`s. Event types: `text`, `result`, `tool_call`, `session_id`. Return `[]` for lines you can't or don't need to parse. **Emitting `session_id` is required** — without it, Sandcastle cannot capture the session for resume.
@@ -107,8 +107,8 @@ interface SessionStore {
 ```
 
 - `exists(id)` — pre-flight check used by `run()` and `createWorktree()` to validate `resumeSession` before launching.
-- `sessionFilePath(id)` — the on-disk path of the session, surfaced to callers via `OrchestrateResult.sessionFilePath`. Return `undefined` for non-file-backed stores (e.g. SQLite).
-- `readSession(id)` / `writeSession(id, content)` — read/write the session content as an opaque string. For JSONL agents, this is the file contents. For SQLite-backed agents, serialise the relevant row(s) to a string the same store can round-trip back.
+- `sessionFilePath(id)` — the on-disk path of the session, surfaced to callers via `OrchestrateResult.sessionFilePath`. Return `undefined` only when a file-backed store cannot synchronously expose a located path yet.
+- `readSession(id)` / `writeSession(id, content)` — read/write the session content as an opaque string. For JSONL agents, this is the file contents.
 
 ## Resume support (required)
 

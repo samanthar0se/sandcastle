@@ -1,8 +1,6 @@
 import { NodeContext, NodeFileSystem } from "@effect/platform-node";
-import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { Effect, Layer } from "effect";
-import { hostSessionStore } from "./SessionStore.js";
 import type { AgentProvider } from "./AgentProvider.js";
 import { ClackDisplay, Display, FileDisplay } from "./Display.js";
 import { preprocessPrompt } from "./PromptPreprocessor.js";
@@ -33,7 +31,6 @@ import type { InteractiveResult } from "./interactive.js";
 import { buildLogFilename, printFileDisplayStartup } from "./run.js";
 import type { LoggingOption } from "./run.js";
 import { orchestrate, type IterationResult } from "./Orchestrator.js";
-import { defaultSessionPathsLayer } from "./SessionPaths.js";
 import {
   callbackAgentStreamEmitterLayer,
   noopAgentStreamEmitterLayer,
@@ -487,11 +484,17 @@ export const createWorktree = async (
     }
 
     if (opts.resumeSession) {
-      const hStore = hostSessionStore(hostRepoDir);
-      const sessionPath = hStore.sessionFilePath(opts.resumeSession);
-      if (!existsSync(sessionPath)) {
+      if (!provider.sessionStorage) {
+        throw new Error(`${provider.name} does not support resumeSession`);
+      }
+      const hStore = provider.sessionStorage.hostStore(hostRepoDir);
+      const exists = await hStore.exists(opts.resumeSession);
+      if (!exists) {
+        const sessionPath = hStore.sessionFilePath(opts.resumeSession);
         throw new Error(
-          `resumeSession "${opts.resumeSession}" not found: expected session file at ${sessionPath}`,
+          sessionPath
+            ? `resumeSession "${opts.resumeSession}" not found: expected session file at ${sessionPath}`
+            : `resumeSession "${opts.resumeSession}" not found`,
         );
       }
     }
@@ -627,7 +630,6 @@ export const createWorktree = async (
       const runLayer = Layer.mergeAll(
         reuseFactoryLayer,
         runDisplayLayer,
-        defaultSessionPathsLayer,
         agentStreamEmitterLayer,
       );
 

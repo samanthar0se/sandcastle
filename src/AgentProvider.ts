@@ -1,3 +1,14 @@
+import {
+  codexHostSessionStore,
+  codexSandboxSessionStore,
+  hostSessionStore,
+  sandboxSessionStore,
+  transferClaudeSession,
+  transferCodexSession,
+  type SessionStore,
+} from "./SessionStore.js";
+import type { BindMountSandboxHandle } from "./SandboxProvider.js";
+
 export type ParsedStreamEvent =
   | { type: "text"; text: string }
   | { type: "result"; result: string }
@@ -21,7 +32,11 @@ const TOOL_ARG_FIELDS: Record<string, string> = {
 const extractErrorMessage = (obj: any): string | undefined => {
   const err = obj.error;
   if (typeof err === "string") return err;
-  if (typeof err === "object" && err !== null && typeof err.message === "string") {
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    typeof err.message === "string"
+  ) {
     return err.message;
   }
   if (typeof obj.message === "string") return obj.message;
@@ -108,12 +123,20 @@ export interface IterationUsage {
   readonly outputTokens: number;
 }
 
+export interface AgentSessionStorage {
+  hostStore(cwd: string): SessionStore;
+  sandboxStore(cwd: string, handle: BindMountSandboxHandle): SessionStore;
+  transfer(from: SessionStore, to: SessionStore, id: string): Promise<void>;
+}
+
 export interface AgentProvider {
   readonly name: string;
   /** Environment variables injected by this agent provider. Merged at launch time with env resolver and sandbox provider env. */
   readonly env: Record<string, string>;
   /** When true, session capture is enabled for this provider. Default: true for Claude Code, false for others. */
   readonly captureSessions: boolean;
+  /** Provider-owned storage and transfer behavior for resumable agent sessions. */
+  readonly sessionStorage?: AgentSessionStorage;
   buildPrintCommand(options: AgentCommandOptions): PrintCommand;
   buildInteractiveArgs?(options: AgentCommandOptions): string[];
   parseStreamLine(line: string): ParsedStreamEvent[];
@@ -225,6 +248,10 @@ const parseCodexStreamLine = (line: string): ParsedStreamEvent[] => {
   try {
     const obj = JSON.parse(line);
 
+    if (obj.type === "thread.started" && typeof obj.thread_id === "string") {
+      return [{ type: "session_id", sessionId: obj.thread_id }];
+    }
+
     // item.completed with agent_message → text + result
     if (
       obj.type === "item.completed" &&
@@ -267,22 +294,47 @@ export interface CodexOptions {
   readonly effort?: "low" | "medium" | "high" | "xhigh";
   /** Environment variables injected by this agent provider. */
   readonly env?: Record<string, string>;
+  /** When false, session capture is disabled. Default: true. */
+  readonly captureSessions?: boolean;
+  /** Override Codex session directories for tests or non-standard installs. */
+  readonly sessionStorage?: {
+    readonly hostSessionsDir?: string;
+    readonly sandboxSessionsDir?: string;
+  };
 }
 
 export const codex = (
   model: string,
   options?: CodexOptions,
-): AgentProvider => ({
+): AgentProvider & { readonly sessionStorage: AgentSessionStorage } => ({
   name: "codex",
   env: options?.env ?? {},
-  captureSessions: false,
+  captureSessions: options?.captureSessions ?? true,
+  sessionStorage: {
+    hostStore: (cwd) =>
+      codexHostSessionStore(cwd, options?.sessionStorage?.hostSessionsDir),
+    sandboxStore: (cwd, handle) =>
+      codexSandboxSessionStore(
+        cwd,
+        handle,
+        options?.sessionStorage?.sandboxSessionsDir,
+      ),
+    transfer: transferCodexSession,
+  },
 
-  buildPrintCommand({ prompt }: AgentCommandOptions): PrintCommand {
+  buildPrintCommand({
+    prompt,
+    resumeSession,
+  }: AgentCommandOptions): PrintCommand {
     const effortFlag = options?.effort
       ? ` -c ${shellEscape(`model_reasoning_effort="${options.effort}"`)}`
       : "";
+    const base = resumeSession
+      ? `codex exec resume ${shellEscape(resumeSession)}`
+      : "codex exec";
+    const stdinArg = resumeSession ? " -" : "";
     return {
-      command: `codex exec --json --dangerously-bypass-approvals-and-sandbox -m ${shellEscape(model)}${effortFlag}`,
+      command: `${base} --json --dangerously-bypass-approvals-and-sandbox -m ${shellEscape(model)}${effortFlag}${stdinArg}`,
       stdin: prompt,
     };
   },
@@ -348,15 +400,32 @@ export interface ClaudeCodeOptions {
   readonly env?: Record<string, string>;
   /** When false, session capture is disabled. Default: true. */
   readonly captureSessions?: boolean;
+  /** Override Claude session directories for tests or non-standard installs. */
+  readonly sessionStorage?: {
+    readonly hostProjectsDir?: string;
+    readonly sandboxProjectsDir?: string;
+  };
 }
 
 export const claudeCode = (
   model: string,
   options?: ClaudeCodeOptions,
-): AgentProvider => ({
+): AgentProvider & { readonly sessionStorage: AgentSessionStorage } => ({
   name: "claude-code",
   env: options?.env ?? {},
   captureSessions: options?.captureSessions ?? true,
+  sessionStorage: {
+    hostStore: (cwd) =>
+      hostSessionStore(cwd, options?.sessionStorage?.hostProjectsDir),
+    sandboxStore: (cwd, handle) =>
+      sandboxSessionStore(
+        cwd,
+        handle,
+        options?.sessionStorage?.sandboxProjectsDir ??
+          "/home/agent/.claude/projects",
+      ),
+    transfer: transferClaudeSession,
+  },
 
   buildPrintCommand({
     prompt,

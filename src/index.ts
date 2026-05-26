@@ -35,13 +35,11 @@ export {
   hostSessionStore,
   sandboxSessionStore,
   transferSession,
+  codexHostSessionStore,
+  codexSandboxSessionStore,
+  transferCodexSession,
 } from "./SessionStore.js";
 export type { SessionStore } from "./SessionStore.js";
-export {
-  SessionPaths,
-  sessionPathsLayer,
-  defaultSessionPathsLayer,
-} from "./SessionPaths.js";
 export type { SandboxHooks } from "./SandboxLifecycle.js";
 export type { MountConfig } from "./MountConfig.js";
 export { Output, StructuredOutputError } from "./Output.js";
