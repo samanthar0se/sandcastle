@@ -544,6 +544,12 @@ const parseOpenCodeStreamLine = (line: string): ParsedStreamEvent[] => {
 export interface OpenCodeOptions {
   /** Provider-specific reasoning effort variant (e.g. "high", "max", "low", "minimal"). */
   readonly variant?: string;
+  /**
+   * Named OpenCode agent/mode to run, mapped to OpenCode's own `--agent` flag
+   * (e.g. "build", "plan"). This is distinct from Sandcastle's `--agent`
+   * provider selector — it chooses an agent *inside* OpenCode.
+   */
+  readonly agent?: string;
   /** Environment variables injected by this agent provider. */
   readonly env?: Record<string, string>;
 }
@@ -560,13 +566,17 @@ export const opencode = (
     const variantFlag = options?.variant
       ? ` --variant ${shellEscape(options.variant)}`
       : "";
+    const agentFlag = options?.agent
+      ? ` --agent ${shellEscape(options.agent)}`
+      : "";
     return {
-      command: `opencode run --model ${shellEscape(model)}${variantFlag} ${shellEscape(prompt)}`,
+      command: `opencode run --model ${shellEscape(model)}${variantFlag}${agentFlag} ${shellEscape(prompt)}`,
     };
   },
 
   buildInteractiveArgs({ prompt }: AgentCommandOptions): string[] {
     const args = ["opencode", "--model", model];
+    if (options?.agent) args.push("--agent", options.agent);
     if (prompt) args.push("-p", prompt);
     return args;
   },

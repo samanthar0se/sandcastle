@@ -1,71 +1,79 @@
 import { describe, expect, it } from "vitest";
 import {
-  findCollision,
-  isActiveWorktree,
-  isManagedWorktree,
+  findCollidingWorktree,
+  isManagedWorktreePath,
+  isOrphanedWorktreePath,
 } from "./WorktreeManager.js";
 
 // On Windows, `git worktree list --porcelain` reports paths with forward
-// slashes, while `node:path.join` produces backslashes. The comparison sites
-// in WorktreeManager mix the two, so without separator normalization every
-// comparison silently fails on Windows. These tests feed git-style (`/`) paths
-// against join-style (`\`) paths to reproduce that mismatch on any host.
+// slashes, while `node:path.join` produces backslashes. These tests pin the
+// separator-robust comparison logic by mixing the two representations the way
+// a real Windows host would — something Linux/macOS CI cannot otherwise
+// reproduce, since both git and `join` emit forward slashes there.
 
-describe("findCollision (Windows separator mismatch)", () => {
-  it("falls back to a path match when the branch is null (detached HEAD)", () => {
+const worktreesDir = "C:\\repo\\.sandcastle\\worktrees";
+const gitWorktreePath = "C:/repo/.sandcastle/worktrees/feature-x";
+const joinWorktreePath = "C:\\repo\\.sandcastle\\worktrees\\feature-x";
+
+describe("findCollidingWorktree", () => {
+  it("matches by branch name", () => {
     const existing = [
-      { path: "C:/repo/.sandcastle/worktrees/feat-rebase", branch: null },
+      { path: gitWorktreePath, branch: "feature-x" },
+      { path: "C:/repo/.sandcastle/worktrees/other", branch: "other" },
     ];
-    const worktreePath = "C:\\repo\\.sandcastle\\worktrees\\feat-rebase";
-
-    const collision = findCollision(existing, "feat/rebase", worktreePath);
-
-    expect(collision?.path).toBe("C:/repo/.sandcastle/worktrees/feat-rebase");
-  });
-
-  it("matches by branch regardless of separators", () => {
-    const existing = [
-      { path: "C:/repo/.sandcastle/worktrees/my-branch", branch: "my-branch" },
-    ];
-
-    const collision = findCollision(
+    const collision = findCollidingWorktree(
       existing,
-      "my-branch",
-      "C:\\repo\\.sandcastle\\worktrees\\my-branch",
+      "feature-x",
+      joinWorktreePath,
     );
+    expect(collision?.path).toBe(gitWorktreePath);
+  });
 
-    expect(collision?.path).toBe("C:/repo/.sandcastle/worktrees/my-branch");
+  it("falls back to a path match across separator styles (mid-rebase detached HEAD)", () => {
+    // git reports a null branch mid-rebase, so the branch match misses and the
+    // fallback must compare the git (forward-slash) path against the join
+    // (backslash) target path.
+    const existing = [{ path: gitWorktreePath, branch: null }];
+    const collision = findCollidingWorktree(
+      existing,
+      "feature-x",
+      joinWorktreePath,
+    );
+    expect(collision?.path).toBe(gitWorktreePath);
+  });
+
+  it("returns undefined when nothing collides", () => {
+    const existing = [
+      { path: "C:/repo/.sandcastle/worktrees/other", branch: "other" },
+    ];
+    expect(
+      findCollidingWorktree(existing, "feature-x", joinWorktreePath),
+    ).toBeUndefined();
   });
 });
 
-describe("isManagedWorktree (Windows separator mismatch)", () => {
-  it("recognizes a managed worktree when git uses / and join uses \\", () => {
-    const collisionPath = "C:/repo/.sandcastle/worktrees/my-branch";
-    const worktreesDir = "C:\\repo\\.sandcastle\\worktrees";
-
-    expect(isManagedWorktree(collisionPath, worktreesDir)).toBe(true);
+describe("isManagedWorktreePath", () => {
+  it("treats a git (forward-slash) path under the join (backslash) worktrees dir as managed", () => {
+    expect(isManagedWorktreePath(gitWorktreePath, worktreesDir)).toBe(true);
   });
 
-  it("treats the main working tree as external (not managed)", () => {
-    const collisionPath = "C:/repo";
-    const worktreesDir = "C:\\repo\\.sandcastle\\worktrees";
-
-    expect(isManagedWorktree(collisionPath, worktreesDir)).toBe(false);
+  it("treats a path outside the worktrees dir as external", () => {
+    expect(
+      isManagedWorktreePath("C:/repo/some-external-worktree", worktreesDir),
+    ).toBe(false);
   });
 });
 
-describe("isActiveWorktree (Windows separator mismatch)", () => {
-  it("recognizes an active worktree when git uses / and join uses \\", () => {
-    const active = new Set(["C:/repo/.sandcastle/worktrees/wt-123"]);
-    const entryPath = "C:\\repo\\.sandcastle\\worktrees\\wt-123";
-
-    expect(isActiveWorktree(entryPath, active)).toBe(true);
+describe("isOrphanedWorktreePath", () => {
+  it("does not flag an active worktree as orphaned across separator styles", () => {
+    // Regression for the Windows data-loss bug: the entry path comes from
+    // `join` (backslashes) while git's active set uses forward slashes.
+    const activePaths = [gitWorktreePath, "C:/repo"];
+    expect(isOrphanedWorktreePath(joinWorktreePath, activePaths)).toBe(false);
   });
 
-  it("flags a directory not in git's active list as orphaned", () => {
-    const active = new Set(["C:/repo/.sandcastle/worktrees/wt-123"]);
-    const entryPath = "C:\\repo\\.sandcastle\\worktrees\\orphan";
-
-    expect(isActiveWorktree(entryPath, active)).toBe(false);
+  it("flags a directory absent from the active set as orphaned", () => {
+    const activePaths = ["C:/repo"];
+    expect(isOrphanedWorktreePath(joinWorktreePath, activePaths)).toBe(true);
   });
 });

@@ -970,6 +970,61 @@ describe("opencode factory", () => {
     expect(command).toContain("--variant 'it'\\''s tricky'");
   });
 
+  it("buildPrintCommand includes --agent when specified", () => {
+    const provider = opencode("opencode/big-pickle", { agent: "build" });
+    const { command } = provider.buildPrintCommand(opts("do something"));
+    expect(command).toContain("--agent 'build'");
+  });
+
+  it("buildPrintCommand omits --agent when not specified", () => {
+    const provider = opencode("opencode/big-pickle");
+    const { command } = provider.buildPrintCommand(opts("do something"));
+    expect(command).not.toContain("--agent");
+  });
+
+  it("buildPrintCommand omits --agent when options is empty", () => {
+    const provider = opencode("opencode/big-pickle", {});
+    const { command } = provider.buildPrintCommand(opts("do something"));
+    expect(command).not.toContain("--agent");
+  });
+
+  it("passes through arbitrary agent values to the CLI flag", () => {
+    for (const agent of ["build", "plan", "general", "custom-agent"]) {
+      const provider = opencode("opencode/big-pickle", { agent });
+      expect(provider.buildPrintCommand(opts("test")).command).toContain(
+        "--agent",
+      );
+    }
+  });
+
+  it("buildPrintCommand shell-escapes the agent value", () => {
+    const provider = opencode("opencode/big-pickle", {
+      agent: "it's tricky",
+    });
+    const { command } = provider.buildPrintCommand(opts("test"));
+    expect(command).toContain("--agent 'it'\\''s tricky'");
+  });
+
+  it("buildInteractiveArgs includes --agent when specified", () => {
+    const provider = opencode("opencode/big-pickle", { agent: "build" });
+    const args = provider.buildInteractiveArgs!(opts("do something"));
+    expect(args).toEqual([
+      "opencode",
+      "--model",
+      "opencode/big-pickle",
+      "--agent",
+      "build",
+      "-p",
+      "do something",
+    ]);
+  });
+
+  it("buildInteractiveArgs omits --agent when not specified", () => {
+    const provider = opencode("opencode/big-pickle");
+    const args = provider.buildInteractiveArgs!(opts("do something"));
+    expect(args).not.toContain("--agent");
+  });
+
   it("parseStreamLine extracts session id from step_start", () => {
     const provider = opencode("opencode/big-pickle");
     const line = JSON.stringify({
