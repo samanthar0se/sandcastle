@@ -95,9 +95,9 @@ describe("sanitizeName", () => {
 });
 
 describe("generateTempBranchName", () => {
-  it("returns a string in sandcastle/<YYYYMMDD-HHMMSS> format", () => {
+  it("returns a string in sandcastle/<YYYYMMDD-HHMMSS>-<random> format", () => {
     const name = generateTempBranchName();
-    expect(name).toMatch(/^sandcastle\/\d{8}-\d{6}$/);
+    expect(name).toMatch(/^sandcastle\/\d{8}-\d{6}-[0-9a-f]{6}$/);
   });
 
   it("returns different names when called at different times", async () => {
@@ -107,14 +107,20 @@ describe("generateTempBranchName", () => {
     expect(a).not.toBe(b);
   });
 
+  it("returns different names when called within the same second (random suffix)", () => {
+    const names = new Set<string>();
+    for (let i = 0; i < 16; i++) names.add(generateTempBranchName());
+    expect(names.size).toBe(16);
+  });
+
   it("includes sanitized name when provided", () => {
     const name = generateTempBranchName("my-run");
-    expect(name).toMatch(/^sandcastle\/my-run\/\d{8}-\d{6}$/);
+    expect(name).toMatch(/^sandcastle\/my-run\/\d{8}-\d{6}-[0-9a-f]{6}$/);
   });
 
   it("sanitizes the name in the branch", () => {
     const name = generateTempBranchName("My Run!");
-    expect(name).toMatch(/^sandcastle\/my-run-\/\d{8}-\d{6}$/);
+    expect(name).toMatch(/^sandcastle\/my-run-\/\d{8}-\d{6}-[0-9a-f]{6}$/);
   });
 });
 
@@ -134,22 +140,22 @@ describe("WorktreeManager.create", () => {
     expect(branch.length).toBeGreaterThan(0);
   });
 
-  it("creates a sandcastle/<timestamp> branch when no branch is specified", async () => {
+  it("creates a sandcastle/<timestamp>-<random> branch when no branch is specified", async () => {
     const repoDir = await setupRepo();
     const { branch } = await run(create(repoDir));
-    expect(branch).toMatch(/^sandcastle\/\d{8}-\d{6}$/);
+    expect(branch).toMatch(/^sandcastle\/\d{8}-\d{6}-[0-9a-f]{6}$/);
   });
 
   it("includes name in branch when name is specified", async () => {
     const repoDir = await setupRepo();
     const { branch } = await run(create(repoDir, { name: "my-run" }));
-    expect(branch).toMatch(/^sandcastle\/my-run\/\d{8}-\d{6}$/);
+    expect(branch).toMatch(/^sandcastle\/my-run\/\d{8}-\d{6}-[0-9a-f]{6}$/);
   });
 
   it("includes name in worktree directory when name is specified", async () => {
     const repoDir = await setupRepo();
     const { path } = await run(create(repoDir, { name: "my-run" }));
-    expect(path).toMatch(/sandcastle-my-run-\d{8}-\d{6}$/);
+    expect(path).toMatch(/sandcastle-my-run-\d{8}-\d{6}-[0-9a-f]{6}$/);
   });
 
   it("checks out the specified branch when branch is given", async () => {

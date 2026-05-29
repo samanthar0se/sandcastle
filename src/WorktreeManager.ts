@@ -1,6 +1,7 @@
 import { Effect, Option } from "effect";
 import { FileSystem } from "@effect/platform";
 import { execFile } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { join, normalize } from "node:path";
 import { WorktreeError, WorktreeTimeoutError, withTimeout } from "./errors.js";
 
@@ -27,6 +28,14 @@ const formatTimestamp = (date: Date): string => {
     `${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`
   );
 };
+
+/**
+ * Short random hex suffix appended to generated temp branch names. Three
+ * bytes (six hex chars) is enough entropy to keep concurrent `run()` /
+ * `RunResult.fork()` calls within the same second from colliding on branch
+ * names — the second-granularity timestamp alone is not (see ADR 0018).
+ */
+const randomBranchSuffix = (): string => randomBytes(3).toString("hex");
 
 /** Sanitize a name for use in branch names and directory names. */
 export const sanitizeName = (name: string): string =>
@@ -63,15 +72,20 @@ const execGit = (
 
 /**
  * Generates a temporary branch name.
- * When name is provided: `sandcastle/<sanitized-name>/<YYYYMMDD-HHMMSS>`.
- * Otherwise: `sandcastle/<YYYYMMDD-HHMMSS>`.
+ * When name is provided: `sandcastle/<sanitized-name>/<YYYYMMDD-HHMMSS>-<random>`.
+ * Otherwise: `sandcastle/<YYYYMMDD-HHMMSS>-<random>`.
+ *
+ * The random suffix prevents collisions between concurrent calls within the
+ * same wall-clock second — relevant for fan-out via `RunResult.fork()` and
+ * for plain `Promise.all([run(), run()])` callers.
  */
 export const generateTempBranchName = (name?: string): string => {
   const ts = formatTimestamp(new Date());
+  const suffix = randomBranchSuffix();
   if (name) {
-    return `sandcastle/${sanitizeName(name)}/${ts}`;
+    return `sandcastle/${sanitizeName(name)}/${ts}-${suffix}`;
   }
-  return `sandcastle/${ts}`;
+  return `sandcastle/${ts}-${suffix}`;
 };
 
 /** Returns the name of the currently checked-out branch in the given repo directory. */
@@ -217,13 +231,14 @@ export const create = (
       worktreeName = branch.replace(/\//g, "-");
     } else {
       const timestamp = formatTimestamp(new Date());
+      const suffix = randomBranchSuffix();
       if (opts?.name) {
         const sanitized = sanitizeName(opts.name);
-        branch = `sandcastle/${sanitized}/${timestamp}`;
-        worktreeName = `sandcastle-${sanitized}-${timestamp}`;
+        branch = `sandcastle/${sanitized}/${timestamp}-${suffix}`;
+        worktreeName = `sandcastle-${sanitized}-${timestamp}-${suffix}`;
       } else {
-        branch = `sandcastle/${timestamp}`;
-        worktreeName = `sandcastle-${timestamp}`;
+        branch = `sandcastle/${timestamp}-${suffix}`;
+        worktreeName = `sandcastle-${timestamp}-${suffix}`;
       }
     }
 
