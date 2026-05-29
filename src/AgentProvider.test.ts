@@ -477,6 +477,40 @@ describe("pi factory", () => {
     const provider = pi("claude-sonnet-4-6");
     expect(provider.env).toEqual({});
   });
+
+  it("buildPrintCommand includes --thinking when specified", () => {
+    const provider = pi("claude-sonnet-4-6", { thinking: "high" });
+    const { command } = provider.buildPrintCommand(opts("do something"));
+    expect(command).toContain("--thinking high");
+  });
+
+  it("buildPrintCommand omits --thinking when not specified", () => {
+    const provider = pi("claude-sonnet-4-6");
+    const { command } = provider.buildPrintCommand(opts("do something"));
+    expect(command).not.toContain("--thinking");
+  });
+
+  it("buildPrintCommand omits --thinking when options is empty", () => {
+    const provider = pi("claude-sonnet-4-6", {});
+    const { command } = provider.buildPrintCommand(opts("do something"));
+    expect(command).not.toContain("--thinking");
+  });
+
+  it("supports all thinking levels", () => {
+    for (const thinking of [
+      "off",
+      "minimal",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+    ] as const) {
+      const provider = pi("claude-sonnet-4-6", { thinking });
+      expect(provider.buildPrintCommand(opts("test")).command).toContain(
+        `--thinking ${thinking}`,
+      );
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------

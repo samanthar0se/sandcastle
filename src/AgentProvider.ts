@@ -475,6 +475,8 @@ const parsePiStreamLine = (line: string): ParsedStreamEvent[] => {
 
 /** Options for the pi agent provider. */
 export interface PiOptions {
+  /** Reasoning effort level. Maps to the CLI's --thinking flag. */
+  readonly thinking?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
   /** Environment variables injected by this agent provider. */
   readonly env?: Record<string, string>;
 }
@@ -485,8 +487,11 @@ export const pi = (model: string, options?: PiOptions): AgentProvider => ({
   captureSessions: false,
 
   buildPrintCommand({ prompt }: AgentCommandOptions): PrintCommand {
+    const thinkingFlag = options?.thinking
+      ? ` --thinking ${options.thinking}`
+      : "";
     return {
-      command: `pi -p --mode json --no-session --model ${shellEscape(model)}`,
+      command: `pi -p --mode json --no-session --model ${shellEscape(model)}${thinkingFlag}`,
       stdin: prompt,
     };
   },

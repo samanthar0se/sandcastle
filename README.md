@@ -860,6 +860,19 @@ agent: codex("gpt-5.4", { effort: "high" });
 | `env`             | `Record<string, string>`                       | `{}`    | Environment variables injected by this agent provider     |
 | `captureSessions` | `boolean`                                      | `true`  | Capture Codex rollout JSONL to host for resume            |
 
+### `PiOptions`
+
+The `pi()` factory accepts an optional second argument for provider-specific options:
+
+```typescript
+agent: pi("claude-sonnet-4-6", { thinking: "high" });
+```
+
+| Option     | Type                                                                     | Default | Description                                           |
+| ---------- | ------------------------------------------------------------------------ | ------- | ----------------------------------------------------- |
+| `thinking` | `"off"` \| `"minimal"` \| `"low"` \| `"medium"` \| `"high"` \| `"xhigh"` | —       | Pi reasoning effort level via the `--thinking` flag   |
+| `env`      | `Record<string, string>`                                                 | `{}`    | Environment variables injected by this agent provider |
+
 ### Provider `env`
 
 Both **agent providers** and **sandbox providers** accept an optional `env: Record<string, string>` in their options. These environment variables are merged with the `.sandcastle/.env` resolver output at launch time:
