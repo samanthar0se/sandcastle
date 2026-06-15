@@ -711,6 +711,43 @@ describe("InitService scaffold", () => {
       );
     });
 
+    it("claude-code agent gets a `claude setup-token` hint under the env-vars step", () => {
+      const blank = next("blank", "main.mts").join("\n");
+      const nonBlank = next("simple-loop", "main.mts").join("\n");
+      expect(blank).toContain("claude setup-token");
+      expect(blank).toContain("CLAUDE_CODE_OAUTH_TOKEN");
+      expect(nonBlank).toContain("claude setup-token");
+      expect(nonBlank).toContain("CLAUDE_CODE_OAUTH_TOKEN");
+    });
+
+    it("non-claude-code agents do not get the `claude setup-token` hint", () => {
+      const piLines = getNextStepsLines(
+        "simple-loop",
+        "main.mts",
+        ghIssues,
+        piAgent,
+        "npm",
+      ).join("\n");
+      const codexLines = getNextStepsLines(
+        "blank",
+        "main.mts",
+        ghIssues,
+        codexAgent,
+        "npm",
+      ).join("\n");
+      expect(piLines).not.toContain("claude setup-token");
+      expect(piLines).not.toContain("CLAUDE_CODE_OAUTH_TOKEN");
+      expect(codexLines).not.toContain("claude setup-token");
+      expect(codexLines).not.toContain("CLAUDE_CODE_OAUTH_TOKEN");
+    });
+
+    it("next steps no longer link to the closed issues/191 workaround", () => {
+      const blank = next("blank", "main.mts").join("\n");
+      const nonBlank = next("simple-loop", "main.mts").join("\n");
+      expect(blank).not.toContain("issues/191");
+      expect(nonBlank).not.toContain("issues/191");
+    });
+
     it("non-planner template does not mention installing zod", () => {
       const lines = next("simple-loop", "main.mts");
       const joined = lines.join("\n");
