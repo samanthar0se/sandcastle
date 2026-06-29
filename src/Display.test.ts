@@ -379,6 +379,37 @@ describe("FileDisplay", () => {
     expect(log).not.toContain("Now I have\n");
   });
 
+  it("starts a following line entry on a fresh line after a mid-line chunk", async () => {
+    const { logPath, layer } = setup();
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const d = yield* Display;
+        yield* d.textChunk("Let me read the file.");
+        yield* d.toolCall("Read", "src/hello.ts");
+      }).pipe(Effect.provide(layer)),
+    );
+
+    const log = readLog(logPath);
+    expect(log).toContain("Let me read the file.\nRead(src/hello.ts)\n");
+  });
+
+  it("does not insert an extra newline when the chunk already ends with one", async () => {
+    const { logPath, layer } = setup();
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const d = yield* Display;
+        yield* d.textChunk("Done.\n");
+        yield* d.text("Context window: 10%");
+      }).pipe(Effect.provide(layer)),
+    );
+
+    const log = readLog(logPath);
+    expect(log).toContain("Done.\nContext window: 10%\n");
+    expect(log).not.toContain("Done.\n\nContext window");
+  });
+
   it("creates log file with run delimiter on initialization", async () => {
     const { logPath, layer } = setup();
 

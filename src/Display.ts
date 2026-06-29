@@ -157,15 +157,29 @@ export const FileDisplay = {
           .writeFileString(filePath, delimiter, { flag: "a" })
           .pipe(Effect.orDie);
 
+        // Tracks whether the last write left the cursor mid-line (a raw chunk
+        // with no trailing newline). Line-oriented entries consult this so they
+        // always begin on a fresh line, keeping structured output (tool calls,
+        // status, context-window summaries) off the tail of streamed prose.
+        let midLine = false;
+
         const appendToLog = (line: string): Effect.Effect<void> =>
-          fs
-            .writeFileString(filePath, line + "\n", { flag: "a" })
-            .pipe(Effect.ignore);
+          Effect.suspend(() => {
+            const prefix = midLine ? "\n" : "";
+            midLine = false;
+            return fs
+              .writeFileString(filePath, `${prefix}${line}\n`, { flag: "a" })
+              .pipe(Effect.ignore);
+          });
 
         const appendRaw = (chunk: string): Effect.Effect<void> =>
-          fs
-            .writeFileString(filePath, chunk, { flag: "a" })
-            .pipe(Effect.ignore);
+          Effect.suspend(() => {
+            if (chunk.length === 0) return Effect.void;
+            midLine = !chunk.endsWith("\n");
+            return fs
+              .writeFileString(filePath, chunk, { flag: "a" })
+              .pipe(Effect.ignore);
+          });
 
         return {
           intro: () => Effect.void,
