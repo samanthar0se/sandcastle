@@ -2877,7 +2877,7 @@ describe("Orchestrator with pi provider", () => {
 
     const entries = await Effect.runPromise(Ref.get(ref));
     const textEntries = entries.filter(
-      (e): e is DisplayEntry & { _tag: "text" } => e._tag === "text",
+      (e): e is DisplayEntry & { _tag: "textChunk" } => e._tag === "textChunk",
     );
 
     // 13 individual text_delta events were streamed, but buffering should
@@ -2959,12 +2959,12 @@ describe("Orchestrator with pi provider", () => {
 
     // Find the text and toolCall entries
     const relevantEntries = entries.filter(
-      (e) => e._tag === "text" || e._tag === "toolCall",
+      (e) => e._tag === "textChunk" || e._tag === "toolCall",
     );
 
     // Text "thinking" must appear BEFORE the tool call
     const textIdx = relevantEntries.findIndex(
-      (e) => e._tag === "text" && e.message === "thinking",
+      (e) => e._tag === "textChunk" && e.message === "thinking",
     );
     const toolIdx = relevantEntries.findIndex((e) => e._tag === "toolCall");
     expect(textIdx).toBeGreaterThanOrEqual(0);

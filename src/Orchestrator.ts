@@ -418,7 +418,7 @@ export const orchestrate = (
                 // Invoke the agent — buffer text deltas so Pi's single-token
                 // chunks are displayed as readable multi-word lines.
                 const textBuffer = new TextDeltaBuffer((chunk) => {
-                  Effect.runPromise(display.text(chunk));
+                  Effect.runPromise(display.textChunk(chunk));
                   Effect.runPromise(
                     streamEmitter.emit({
                       type: "text",

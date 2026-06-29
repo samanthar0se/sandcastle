@@ -25,6 +25,7 @@ export type DisplayEntry =
       readonly messages: ReadonlyArray<string>;
     }
   | { readonly _tag: "text"; readonly message: string }
+  | { readonly _tag: "textChunk"; readonly message: string }
   | {
       readonly _tag: "toolCall";
       readonly name: string;
@@ -52,6 +53,13 @@ export interface DisplayService {
   ) => Effect.Effect<A, E, R>;
 
   readonly text: (message: string) => Effect.Effect<void>;
+
+  /**
+   * Writes a raw streaming chunk with no implied line break. Used for
+   * token-by-token agent output, where consecutive chunks must flow together
+   * as contiguous prose rather than each landing on its own line.
+   */
+  readonly textChunk: (chunk: string) => Effect.Effect<void>;
 
   readonly toolCall: (
     name: string,
@@ -119,6 +127,12 @@ export const SilentDisplay = {
           { _tag: "text" as const, message },
         ]),
 
+      textChunk: (chunk) =>
+        Ref.update(ref, (entries) => [
+          ...entries,
+          { _tag: "textChunk" as const, message: chunk },
+        ]),
+
       toolCall: (name, formattedArgs) =>
         Ref.update(ref, (entries) => [
           ...entries,
@@ -146,6 +160,11 @@ export const FileDisplay = {
         const appendToLog = (line: string): Effect.Effect<void> =>
           fs
             .writeFileString(filePath, line + "\n", { flag: "a" })
+            .pipe(Effect.ignore);
+
+        const appendRaw = (chunk: string): Effect.Effect<void> =>
+          fs
+            .writeFileString(filePath, chunk, { flag: "a" })
             .pipe(Effect.ignore);
 
         return {
@@ -188,6 +207,8 @@ export const FileDisplay = {
             }),
 
           text: (message) => appendToLog(message),
+
+          textChunk: (chunk) => appendRaw(chunk),
 
           toolCall: (name, formattedArgs) =>
             appendToLog(`${name}(${formattedArgs})`),
@@ -262,6 +283,8 @@ export const ClackDisplay = {
       ),
 
     text: (message) => Effect.sync(() => clack.log.message(message)),
+
+    textChunk: (chunk) => Effect.sync(() => clack.log.message(chunk)),
 
     toolCall: (name, formattedArgs) =>
       Effect.sync(() =>
