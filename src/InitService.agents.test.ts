@@ -29,11 +29,14 @@ describe("Agent registry", () => {
     const agent = getAgent("pi");
     expect(agent).toBeDefined();
     expect(agent!.name).toBe("pi");
-    expect(agent!.defaultModel).toBe("claude-sonnet-4-6");
+    expect(agent!.defaultModel).toBe("openai-codex/gpt-5.6-sol");
     expect(agent!.factoryImport).toBe("pi");
     expect(agent!.dockerfileTemplate).toContain("FROM");
     expect(agent!.dockerfileTemplate).toContain(
-      "@mariozechner/pi-coding-agent",
+      "@earendil-works/pi-coding-agent@0.80.10",
+    );
+    expect(agent!.dockerfileTemplate).toContain(
+      "@howaboua/pi-codex-conversion@2.2.13",
     );
   });
 

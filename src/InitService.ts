@@ -5,9 +5,12 @@ import { fileURLToPath } from "node:url";
 import { SANDBOX_REPO_DIR } from "./SandboxFactory.js";
 
 const GITIGNORE = `.env
+container-node-modules/
 logs/
 worktrees/
 `;
+
+export const GITHUB_ISSUE_LABEL = "ready-for-agent";
 
 /**
  * Filename of the setup prompt scaffolded for the `custom` issue tracker.
@@ -239,7 +242,7 @@ WORKDIR /home/agent
 ENTRYPOINT ["sleep", "infinity"]
 `;
 
-const PI_DOCKERFILE = `FROM node:22-bookworm
+const PI_DOCKERFILE = `FROM node:22-trixie
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \\
@@ -260,11 +263,13 @@ ARG AGENT_GID=1000
 RUN groupmod -o -g $AGENT_GID node && usermod -o -u $AGENT_UID -g $AGENT_GID -d /home/agent -m -l agent node
 
 # Install pi coding agent (run as root before USER agent)
-RUN npm install -g @mariozechner/pi-coding-agent
+RUN npm install -g @earendil-works/pi-coding-agent@0.80.10
 
 USER \${AGENT_UID}:\${AGENT_GID}
 
 WORKDIR /home/agent
+
+RUN pi install npm:@howaboua/pi-codex-conversion@2.2.13
 
 # In worktree sandbox mode, Sandcastle bind-mounts the git worktree at ${SANDBOX_REPO_DIR}
 # and overrides the working directory to ${SANDBOX_REPO_DIR} at container start.
@@ -423,11 +428,10 @@ CLAUDE_CODE_OAUTH_TOKEN=
   {
     name: "pi",
     label: "Pi",
-    defaultModel: "claude-sonnet-4-6",
+    defaultModel: "openai-codex/gpt-5.6-sol",
     factoryImport: "pi",
     dockerfileTemplate: PI_DOCKERFILE,
-    envExample: `# Anthropic API key
-ANTHROPIC_API_KEY=`,
+    envExample: `# OpenAI Codex OAuth is mounted from ~/.pi/agent/auth.json by the generated runner.`,
     setupCommand: `pi "$(cat ${SETUP_ISSUE_TRACKER_PATH})"`,
   },
   {
@@ -532,7 +536,7 @@ const ISSUE_TRACKER_REGISTRY: IssueTrackerEntry[] = [
     name: "github-issues",
     label: "GitHub Issues",
     templateArgs: {
-      LIST_TASKS_COMMAND: `gh issue list --state open --label Sandcastle --limit 100 --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'`,
+      LIST_TASKS_COMMAND: `gh issue list --state open --label ${GITHUB_ISSUE_LABEL} --limit 100 --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'`,
       VIEW_TASK_COMMAND: "gh issue view <ID>",
       CLOSE_TASK_COMMAND: `gh issue close <ID> --comment "Completed by Sandcastle"`,
       ISSUE_TRACKER_TOOLS: GITHUB_CLI_TOOLS,
@@ -672,8 +676,16 @@ export function getNextStepsLines(
     }
     lines.push(
       `${step++}. Add "sandcastle": "npx tsx .sandcastle/${mainFilename}" to your package.json scripts`,
-      `${step++}. Templates use \`copyToWorktree: ["node_modules"]\` to copy your host node_modules into the sandbox for fast startup — the \`npm install\` in the onSandboxReady hook is a safety net for platform-specific binaries. Adjust both if you use a different package manager`,
     );
+    if (template === "parallel-planner-with-review" && agent.name === "pi") {
+      lines.push(
+        `${step++}. The Pi runner mounts isolated container node_modules directories under .sandcastle/container-node-modules/ and runs \`npm install\` in each sandbox`,
+      );
+    } else {
+      lines.push(
+        `${step++}. Templates use \`copyToWorktree: ["node_modules"]\` to copy your host node_modules into the sandbox for fast startup — the \`npm install\` in the onSandboxReady hook is a safety net for platform-specific binaries. Adjust both if you use a different package manager`,
+      );
+    }
     if (usesPlanSchema) {
       lines.push(
         `${step++}. Install a schema validator for the planner's \`<plan>\` output — the template uses Zod (\`${addDependencyCommand(packageManager, "zod")}\`), but Valibot, ArkType, or any Standard Schema library works (https://standardschema.dev)`,
@@ -814,8 +826,150 @@ const rewriteMainTs = (
       .pipe(Effect.mapError((e) => new Error(e.message)));
   });
 
+const PIDEX_CODING_STANDARDS = `# Coding Standards
+
+## Style
+
+## Testing
+- Use descriptive test names that explain the expected behavior
+
+## Architecture
+- Keep modules focused on a single responsibility
+- Prefer composition over inheritance
+`;
+
+/** Apply the proven Pidex Pi/Docker defaults to its orchestration template. */
+const applyPidexPiDefaults = (
+  configDir: string,
+  templateName: string,
+  agent: AgentEntry,
+  sandboxProvider: SandboxProviderEntry,
+  mainFilename: string,
+): Effect.Effect<void, Error, FileSystem.FileSystem> =>
+  Effect.gen(function* () {
+    if (
+      templateName !== "parallel-planner-with-review" ||
+      agent.name !== "pi" ||
+      sandboxProvider.name !== "docker"
+    ) {
+      return;
+    }
+
+    const fs = yield* FileSystem.FileSystem;
+    const mainPath = join(configDir, mainFilename);
+    let content = yield* fs
+      .readFileString(mainPath)
+      .pipe(Effect.mapError((e) => new Error(e.message)));
+
+    content = content
+      .replace(
+        'import { z } from "zod";',
+        'import { mkdirSync } from "node:fs";\nimport { resolve } from "node:path";\nimport { z } from "zod";',
+      )
+      .replace(
+        /\/\/   Phase 1 \(Plan\):             An opus agent analyzes open issues, builds a\r?\n\/\/                               dependency graph, and outputs a <plan> JSON/,
+        "//   Phase 1 (Plan):             A high-reasoning agent analyzes open issues,\n//                               builds a dependency graph, and outputs a <plan> JSON",
+      )
+      .replace(
+        "The planning agent (opus, for deeper reasoning) reads the open issue list,",
+        "The planning agent reads the open issue list,",
+      )
+      .replace(
+        /[ \t]*\/\/ Opus for planning: dependency analysis benefits from deeper reasoning\.\r?\n/,
+        "",
+      )
+      .replace(
+        /\/\/ Copy node_modules from the host into the worktree before each sandbox\r?\n\/\/ starts\.[\s\S]*?const copyToWorktree = \["node_modules"\];\r?\n\r?\n/,
+        "",
+      )
+      .replace(/\s+copyToWorktree,\r?\n/, "\n")
+      .replace("const MAX_ITERATIONS = 10;", "const MAX_ITERATIONS = 50;");
+
+    const sandboxFactory = `const containerDependencyRoot = resolve(
+  ".sandcastle/container-node-modules",
+);
+
+const createDockerSandbox = (dependencyScope: string) => {
+  const dependencyDirectory = resolve(
+    containerDependencyRoot,
+    dependencyScope.replace(/[^a-zA-Z0-9._-]/g, "-"),
+  );
+  mkdirSync(dependencyDirectory, { recursive: true });
+
+  return docker({
+    mounts: [
+      {
+        hostPath: "~/.pi/agent/auth.json",
+        sandboxPath: "~/.pi/agent/auth.json",
+        readonly: false,
+      },
+      {
+        hostPath: dependencyDirectory.replace(/\\\\/g, "/"),
+        sandboxPath: "/home/agent/workspace/node_modules",
+        readonly: false,
+      },
+    ],
+  });
+};
+
+`;
+    content = content.replace(
+      "// Maximum number of plan→execute→merge cycles before stopping.",
+      `${sandboxFactory}// Maximum number of plan→execute→merge cycles before stopping.`,
+    );
+
+    const dependencyScopes = ['"planner"', "issue.branch", '"merger"'];
+    let sandboxIndex = 0;
+    content = content.replace(/sandbox: docker\(\),/g, () => {
+      const scope = dependencyScopes[sandboxIndex++];
+      return `sandbox: createDockerSandbox(${scope}),`;
+    });
+
+    const thinkingLevels = ["high", "low", "high", "high"];
+    let agentIndex = 0;
+    content = content.replace(
+      /agent: sandcastle\.pi\(([^\n]+)\),/g,
+      (_match, args: string) => {
+        const thinking = thinkingLevels[agentIndex++];
+        return `agent: sandcastle.pi(${args}, { thinking: "${thinking}" }),`;
+      },
+    );
+
+    if (
+      sandboxIndex !== dependencyScopes.length ||
+      agentIndex !== thinkingLevels.length
+    ) {
+      yield* Effect.fail(
+        new Error(
+          "The parallel-planner-with-review template changed and Pidex Pi defaults could not be applied safely.",
+        ),
+      );
+    }
+
+    yield* fs
+      .writeFileString(mainPath, content)
+      .pipe(Effect.mapError((e) => new Error(e.message)));
+
+    const implementPromptPath = join(configDir, "implement-prompt.md");
+    const implementPrompt = yield* fs
+      .readFileString(implementPromptPath)
+      .pipe(Effect.mapError((e) => new Error(e.message)));
+    yield* fs
+      .writeFileString(
+        implementPromptPath,
+        implementPrompt.replace("Start with `RALPH:`", "Start with `CLANKER:`"),
+      )
+      .pipe(Effect.mapError((e) => new Error(e.message)));
+    yield* fs
+      .writeFileString(
+        join(configDir, "CODING_STANDARDS.md"),
+        PIDEX_CODING_STANDARDS,
+      )
+      .pipe(Effect.mapError((e) => new Error(e.message)));
+  });
+
 /**
- * When the user opted out of the Sandcastle label, strip ` --label Sandcastle`
+ * When the user opted out of the issue label, strip its filter
  * from all `.md` files in the scaffolded config directory so that `gh issue list`
  * commands work without a label filter.
  */
@@ -835,7 +989,10 @@ const rewritePromptFiles = (
           const content = yield* fs
             .readFileString(filePath)
             .pipe(Effect.mapError((e) => new Error(e.message)));
-          const updated = content.replace(/ --label Sandcastle/g, "");
+          const updated = content.replace(
+            new RegExp(` --label ${GITHUB_ISSUE_LABEL}`, "g"),
+            "",
+          );
           if (updated !== content) {
             yield* fs
               .writeFileString(filePath, updated)
@@ -1084,10 +1241,18 @@ export const scaffold = (
       mainFilename,
     );
 
+    yield* applyPidexPiDefaults(
+      configDir,
+      templateName,
+      agent,
+      sandboxProvider,
+      mainFilename,
+    );
+
     // Replace issue tracker template arguments in all text files (must run before label stripping)
     yield* substituteTemplateArgs(configDir, issueTracker);
 
-    // Strip --label Sandcastle from prompt files when the user declined label creation
+    // Strip the issue label from prompt files when the user declined label creation
     if (!createLabel) {
       yield* rewritePromptFiles(configDir);
     }

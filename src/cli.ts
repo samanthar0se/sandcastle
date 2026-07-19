@@ -26,6 +26,7 @@ import {
   addDependencyCommand,
   hostHasDependency,
   getTemplateDependencies,
+  GITHUB_ISSUE_LABEL,
 } from "./InitService.js";
 import { defaultImageName } from "./sandboxes/docker.js";
 import type {
@@ -393,15 +394,14 @@ const initCommand = Command.make(
         selectedTemplate = selected as string;
       }
 
-      // Offer to create the "Sandcastle" label on the repo (skip for non-GitHub issue trackers).
+      // Offer to create the ready-for-agent label on the repo (skip for non-GitHub issue trackers).
       // CLI flag > interactive confirm. The flag is only meaningful for the github-issues tracker.
       let shouldCreateLabel = false;
       if (selectedIssueTracker.name === "github-issues") {
         shouldCreateLabel = yield* resolveConfirmFlag({
           choice: createLabelChoice,
           flag: "--create-label",
-          promptMessage:
-            'Create a "Sandcastle" GitHub label? (Templates filter issues by this label)',
+          promptMessage: `Create a "${GITHUB_ISSUE_LABEL}" GitHub label? (Templates filter issues by this label)`,
           cancelMessage: "Label selection cancelled.",
         });
 
@@ -409,7 +409,7 @@ const initCommand = Command.make(
           yield* Effect.try({
             try: () =>
               execSync(
-                'gh label create "Sandcastle" --description "Issues for Sandcastle to work on" --color "F9A825" 2>/dev/null',
+                `gh label create "${GITHUB_ISSUE_LABEL}" --description "Issues ready for an agent" --color "F9A825" 2>/dev/null`,
                 { cwd, stdio: "ignore" },
               ),
             catch: () => undefined,

@@ -72,7 +72,7 @@ describe("InitService scaffold", () => {
     },
     {
       agent: piAgent,
-      expectedKey: "ANTHROPIC_API_KEY=",
+      expectedKey: "OpenAI Codex OAuth is mounted",
       unexpectedKey: "OPENAI_KEY=",
       expectClaudeSetupTokenHint: false,
     },
@@ -171,7 +171,7 @@ describe("InitService scaffold", () => {
     );
   });
 
-  it("includes .env, logs/, and worktrees/ in .gitignore but not patches/", async () => {
+  it("includes runtime and isolated dependency paths in .gitignore but not patches/", async () => {
     const dir = await makeDir();
     await runScaffold(dir);
 
@@ -180,6 +180,7 @@ describe("InitService scaffold", () => {
       "utf-8",
     );
     expect(gitignore).toContain(".env");
+    expect(gitignore).toContain("container-node-modules/");
     expect(gitignore).toContain("logs/");
     expect(gitignore).toContain("worktrees/");
     expect(gitignore).not.toContain("patches/");
@@ -793,26 +794,27 @@ describe("InitService scaffold", () => {
 
   it("scaffolds pi agent with pi Dockerfile", async () => {
     const dir = await makeDir();
-    await runScaffold(dir, { agent: piAgent, model: "claude-sonnet-4-6" });
+    await runScaffold(dir, { agent: piAgent, model: piAgent.defaultModel });
 
     const dockerfile = await readFile(
       join(dir, ".sandcastle", "Dockerfile"),
       "utf-8",
     );
-    expect(dockerfile).toContain("FROM node:22-bookworm");
-    expect(dockerfile).toContain("@mariozechner/pi-coding-agent");
+    expect(dockerfile).toContain("FROM node:22-trixie");
+    expect(dockerfile).toContain("@earendil-works/pi-coding-agent@0.80.10");
+    expect(dockerfile).toContain("@howaboua/pi-codex-conversion@2.2.13");
     expect(dockerfile).not.toContain("{{ISSUE_TRACKER_TOOLS}}");
   });
 
   it("scaffolds main.mts with pi factory import when pi agent selected", async () => {
     const dir = await makeDir();
-    await runScaffold(dir, { agent: piAgent, model: "claude-sonnet-4-6" });
+    await runScaffold(dir, { agent: piAgent, model: piAgent.defaultModel });
 
     const mainTs = await readFile(
       join(dir, ".sandcastle", "main.mts"),
       "utf-8",
     );
-    expect(mainTs).toContain('pi("claude-sonnet-4-6")');
+    expect(mainTs).toContain(`pi("${piAgent.defaultModel}")`);
     expect(mainTs).not.toContain("claudeCode");
   });
 
@@ -874,7 +876,7 @@ describe("InitService scaffold", () => {
 
   // --- createLabel option ---
 
-  it("simple-loop prompt.md retains --label Sandcastle when createLabel is true", async () => {
+  it("simple-loop prompt.md retains --label ready-for-agent when createLabel is true", async () => {
     const dir = await makeDir();
     await runScaffold(dir, { templateName: "simple-loop", createLabel: true });
 
@@ -882,10 +884,10 @@ describe("InitService scaffold", () => {
       join(dir, ".sandcastle", "prompt.md"),
       "utf-8",
     );
-    expect(prompt).toContain("--label Sandcastle");
+    expect(prompt).toContain("--label ready-for-agent");
   });
 
-  it("simple-loop prompt.md strips --label Sandcastle when createLabel is false", async () => {
+  it("simple-loop prompt.md strips --label ready-for-agent when createLabel is false", async () => {
     const dir = await makeDir();
     await runScaffold(dir, { templateName: "simple-loop", createLabel: false });
 
@@ -893,14 +895,14 @@ describe("InitService scaffold", () => {
       join(dir, ".sandcastle", "prompt.md"),
       "utf-8",
     );
-    expect(prompt).not.toContain("--label Sandcastle");
+    expect(prompt).not.toContain("--label ready-for-agent");
     // The gh issue list command should still be valid
     expect(prompt).toContain("gh issue list");
     // No double spaces in gh commands from removal
     expect(prompt).not.toMatch(/gh issue list {2}/);
   });
 
-  it("parallel-planner plan-prompt.md strips --label Sandcastle when createLabel is false", async () => {
+  it("parallel-planner plan-prompt.md strips --label ready-for-agent when createLabel is false", async () => {
     const dir = await makeDir();
     await runScaffold(dir, {
       templateName: "parallel-planner",
@@ -911,11 +913,11 @@ describe("InitService scaffold", () => {
       join(dir, ".sandcastle", "plan-prompt.md"),
       "utf-8",
     );
-    expect(prompt).not.toContain("--label Sandcastle");
+    expect(prompt).not.toContain("--label ready-for-agent");
     expect(prompt).toContain("gh issue list");
   });
 
-  it("sequential-reviewer implement-prompt.md strips --label Sandcastle when createLabel is false", async () => {
+  it("sequential-reviewer implement-prompt.md strips --label ready-for-agent when createLabel is false", async () => {
     const dir = await makeDir();
     await runScaffold(dir, {
       templateName: "sequential-reviewer",
@@ -926,7 +928,7 @@ describe("InitService scaffold", () => {
       join(dir, ".sandcastle", "implement-prompt.md"),
       "utf-8",
     );
-    expect(prompt).not.toContain("--label Sandcastle");
+    expect(prompt).not.toContain("--label ready-for-agent");
     expect(prompt).toContain("gh issue list");
   });
 
@@ -958,7 +960,7 @@ describe("InitService scaffold", () => {
       join(dir, ".sandcastle", "prompt.md"),
       "utf-8",
     );
-    expect(prompt).toContain("--label Sandcastle");
+    expect(prompt).toContain("--label ready-for-agent");
   });
 
   it("unknown template name throws a clear error", async () => {
@@ -1480,7 +1482,7 @@ describe("InitService scaffold", () => {
       expect(prompt).not.toContain("{{CLOSE_TASK_COMMAND}}");
     });
 
-    it("simple-loop with beads skips --label Sandcastle (no label to strip)", async () => {
+    it("simple-loop with beads skips --label ready-for-agent (no label to strip)", async () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "simple-loop",
@@ -1491,10 +1493,10 @@ describe("InitService scaffold", () => {
         join(dir, ".sandcastle", "prompt.md"),
         "utf-8",
       );
-      expect(prompt).not.toContain("--label Sandcastle");
+      expect(prompt).not.toContain("--label ready-for-agent");
     });
 
-    it("simple-loop with github-issues retains --label Sandcastle when createLabel is true", async () => {
+    it("simple-loop with github-issues retains --label ready-for-agent when createLabel is true", async () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "simple-loop",
@@ -1506,10 +1508,10 @@ describe("InitService scaffold", () => {
         join(dir, ".sandcastle", "prompt.md"),
         "utf-8",
       );
-      expect(prompt).toContain("--label Sandcastle");
+      expect(prompt).toContain("--label ready-for-agent");
     });
 
-    it("simple-loop with github-issues strips --label Sandcastle when createLabel is false", async () => {
+    it("simple-loop with github-issues strips --label ready-for-agent when createLabel is false", async () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         templateName: "simple-loop",
@@ -1521,7 +1523,7 @@ describe("InitService scaffold", () => {
         join(dir, ".sandcastle", "prompt.md"),
         "utf-8",
       );
-      expect(prompt).not.toContain("--label Sandcastle");
+      expect(prompt).not.toContain("--label ready-for-agent");
       expect(prompt).toContain("gh issue list");
     });
 
@@ -1993,6 +1995,49 @@ describe("InitService scaffold", () => {
       expect(main).not.toContain("extractPlanIssues");
     });
 
+    it("parallel-planner-with-review reproduces the Pidex Pi defaults", async () => {
+      const dir = await makeDir();
+      await runScaffold(dir, {
+        agent: piAgent,
+        model: piAgent.defaultModel,
+        templateName: "parallel-planner-with-review",
+        issueTracker: getIssueTracker("github-issues"),
+        sandboxProvider: getSandboxProvider("docker"),
+      });
+
+      const configDir = join(dir, ".sandcastle");
+      const main = await readFile(join(configDir, "main.mts"), "utf-8");
+      const implementPrompt = await readFile(
+        join(configDir, "implement-prompt.md"),
+        "utf-8",
+      );
+      const codingStandards = await readFile(
+        join(configDir, "CODING_STANDARDS.md"),
+        "utf-8",
+      );
+
+      expect(main).toContain("const MAX_ITERATIONS = 50;");
+      expect(main).toContain(
+        "A high-reasoning agent analyzes open issues,\n//                               builds a dependency graph",
+      );
+      expect(main).not.toContain("Opus for planning");
+      expect(main).toContain('hostPath: "~/.pi/agent/auth.json"');
+      expect(main).toContain(
+        'sandboxPath: "/home/agent/workspace/node_modules"',
+      );
+      expect(main).toContain('createDockerSandbox("planner")');
+      expect(main).toContain("createDockerSandbox(issue.branch)");
+      expect(main).toContain('createDockerSandbox("merger")');
+      expect(main).toContain('{ thinking: "high" }');
+      expect(main).toContain('{ thinking: "low" }');
+      expect(main).not.toContain("copyToWorktree");
+      expect(implementPrompt).toContain("Start with `CLANKER:`");
+      expect(codingStandards).toContain(
+        "Use descriptive test names that explain the expected behavior",
+      );
+      expect(codingStandards).not.toContain("Customize this file");
+    });
+
     it("parallel-planner-with-review implement-prompt does not contain close-issue instruction", async () => {
       const dir = await makeDir();
       await runScaffold(dir, {
@@ -2156,7 +2201,7 @@ describe("InitService scaffold", () => {
       const dir = await makeDir();
       await runScaffold(dir, {
         agent: piAgent,
-        model: "claude-sonnet-4-6",
+        model: piAgent.defaultModel,
         issueTracker: getIssueTracker("beads"),
       });
 
@@ -2165,7 +2210,7 @@ describe("InitService scaffold", () => {
         "utf-8",
       );
       expect(dockerfile).toContain("beads");
-      expect(dockerfile).toContain("@mariozechner/pi-coding-agent");
+      expect(dockerfile).toContain("@earendil-works/pi-coding-agent@0.80.10");
       expect(dockerfile).not.toContain("GitHub CLI");
     });
   });
