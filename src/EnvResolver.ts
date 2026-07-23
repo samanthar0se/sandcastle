@@ -1,5 +1,6 @@
 import { FileSystem } from "@effect/platform";
 import { Effect } from "effect";
+import { homedir } from "node:os";
 import { join } from "node:path";
 
 const parseEnvFile = (
@@ -49,7 +50,7 @@ const parseEnvFile = (
 /**
  * Resolve all env vars from .env files with process.env fallback.
  *
- * Precedence: .sandcastle/.env > process.env
+ * Precedence: ~/.config/sandcastle/.env GH_TOKEN > .sandcastle/.env > process.env
  * Only keys declared in .sandcastle/.env are resolved from process.env.
  * Repo root .env is not part of the resolution chain.
  */
@@ -60,6 +61,9 @@ export const resolveEnv = (
     const sandcastleEnv = yield* parseEnvFile(
       join(repoDir, ".sandcastle", ".env"),
     );
+    const userEnv = yield* parseEnvFile(
+      join(homedir(), ".config", "sandcastle", ".env"),
+    );
 
     const result: Record<string, string> = {};
     for (const key of Object.keys(sandcastleEnv)) {
@@ -67,6 +71,11 @@ export const resolveEnv = (
       if (value) {
         result[key] = value;
       }
+    }
+
+    const githubToken = userEnv["GH_TOKEN"] || process.env["GH_TOKEN"];
+    if (githubToken) {
+      result["GH_TOKEN"] = githubToken;
     }
 
     return result;
