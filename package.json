@@ -36,13 +36,13 @@
   },
   "scripts": {
     "build": "tsup",
-    "postbuild": "rm -rf dist/templates && cp -r src/templates dist/templates && node scripts/check-public-types-effect-free.mjs",
+    "postbuild": "node scripts/copy-templates.mjs && node scripts/check-public-types-effect-free.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsgo --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "prepare": "husky",
+    "prepare": "npm run build && husky",
     "release": "changeset publish",
     "sandcastle": "npm run build && tsx .sandcastle/run.ts",
     "test-podman": "npm run build && tsx --env-file=.sandcastle/.env .sandcastle/test-podman.ts",
@@ -59,7 +59,7 @@
   "packageManager": "npm@10.9.2",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mattpocock/sandcastle"
+    "url": "https://github.com/samanthar0se/sandcastle"
   },
   "license": "MIT",
   "devDependencies": {

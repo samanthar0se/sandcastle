@@ -51,6 +51,24 @@ cp .sandcastle/.env.example .sandcastle/.env
 npx tsx .sandcastle/main.ts
 ```
 
+### Install this fork without publishing to npm
+
+This fork can be installed directly from GitHub. Pin an immutable commit SHA so every developer and CI run gets the same fork revision:
+
+```bash
+npm install --save-dev "@ai-hero/sandcastle@git+https://github.com/samanthar0se/sandcastle.git#<commit-sha>"
+```
+
+Commit both `package.json` and `package-lock.json` in the consuming project, and use `npm ci` in CI. The package keeps the `@ai-hero/sandcastle` name, so existing imports and `npx sandcastle` commands do not change. npm builds `dist/` from the pinned source commit during installation; no npm registry release is involved.
+
+To roll out another fork revision:
+
+1. Commit and push the Sandcastle changes to this repository.
+2. Copy the resulting commit SHA with `git rev-parse HEAD`.
+3. Run the install command above with the new SHA in each consuming project, then commit its updated `package.json` and `package-lock.json`.
+
+For a friendlier reference, create a unique tag for a tested fork revision and use the tag in place of `<commit-sha>`. Never move an existing tag if installs need to remain reproducible.
+
 ```typescript
 // 3. Run the agent via the JS API
 import { run, claudeCode } from "@ai-hero/sandcastle";
